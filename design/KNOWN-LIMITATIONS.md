@@ -181,7 +181,23 @@ When reviewing the Grid Network design, do not treat these limitations as bugs t
 
 ---
 
-### What Remains To Be Done
+### Unresolved Contradictions (Block Implementation)
+
+These are structural inconsistencies where the specification gives implementers incompatible models. **Implementation cannot proceed on the affected subsystems until these are reconciled.**
+
+| Area | Issue |
+|------|-------|
+| **Stream identity: §7 vs §45.1** | `spec/OBJECTS.md` §7 defines hash-derived `stream_id = H(principal_id \|\| signing_key_id \|\| stream_context \|\| epoch)` with opaque keys; `spec/PROTOCOL.md` §45.1 defines text-string streams (`stream:identity`, `stream:reachability:<device_id>`). Two incompatible models coexist in normative text. |
+| **Verification authority: §5.3 vs §9** | §9 explicitly defers to §5.3 ("§5.3 takes precedence"), but both contain full 12-phase procedures. Normative text has two copies with a stated tiebreak — not a single source of truth. |
+| **§5.3 step 6 ambiguity** | "sequence-1" reads as "the object at sequence number 1" rather than "the object at sequence N-1." §9 Phase 6 phrases it correctly ("the verifier's accepted `chain_hash` for `sequence-1`"), but §5.3 is authoritative. |
+| **§54.5 completeness** | §54.5.1–§54.5.3 exist (model, schema, stream semantics). §54.5.4–§54.5.7 (verification rules, trust chain, effect of acceptance, recovery from root compromise) are absent in both this snapshot and the prior. Diagram truncates at "dual authorization" with no closing content. Source loss vs intentional removal unconfirmed. |
+| **§7 stale dependencies** | §7 ends with a "Missing schema bindings" block referencing six files that do not exist: `SCHEMA.md`, `CRYPTO.md`, `ENCODING.md`, `ROUTING.md`, `CONTINUITY.md`. Note-to-self left in normative section. |
+
+---
+
+### Open Design Decisions (Deferred but Not Contradictory)
+
+These are bounded design choices where the architecture anticipates a decision but does not yet prescribe one. **Implementation can proceed on other subsystems while these are open.**
 
 | Area | Open Work |
 |------|-----------|
@@ -192,16 +208,44 @@ When reviewing the Grid Network design, do not treat these limitations as bugs t
 | **Delayed observation / freshness rules** | Formalizing how verifiers handle objects received significantly after their validity window; defining freshness thresholds and grace periods without central time authority |
 | **PAKE selection** | Choosing between SPAKE2 and CPace for the pairing protocol; this blocks wire protocol and test vector completion |
 | **Wire protocol / relay behavior** | Specifying the relay wire format, ticket presentation flow, rendezvous API endpoints, and relay capability advertisement semantics |
+| **Delegated resolver roles** | Defining resolver authority, challenge semantics, and dispute resolution for delegated identity resolution |
+| **Relay profile / ticket stream semantics** | Independent artifact vs stream-bound; rotation transition table; capability advertisement format |
 | **Conformance scenarios and test vectors** | Producing the 50+ normative test vectors blocked on OBJECTS.md §§6–10 schema completion and PAKE selection |
+
+---
+
+### Open Investigation
+
+| Item | Question |
+|------|----------|
+| **§54.5.4–§54.5.7 absence** | Confirm whether content was intentionally removed or accidentally lost in the merge pipeline. If lost, restore from source. If never authored, write the missing verification rules, trust chain requirements, and recovery semantics. |
+
+---
+
+### Minor Hygiene
+
+| Item | Status |
+|------|--------|
+| `CHANGELOG.md` missing | Optional follow-up — add if project adopts changelog convention |
 
 ---
 
 ### Why This Matters
 
-The unresolved items do not negate the core design; they define the boundary between **review-ready** and **implementation-ready**. The protocol's central commitments — identity as a verifiable property, coordination as a service provided by signed state, infrastructure as replaceable substrate — are internally consistent and documented. The open work consists of: (1) completing schema definitions that the architecture already anticipates, (2) selecting among known alternatives for PAKE and wire encoding, and (3) specifying behavior for edge cases that the model correctly identifies but does not yet prescribe. Each item is a bounded design decision, not a fundamental gap.
+The unresolved items do not negate the core design; they define the boundary between **review-ready** and **implementation-ready**. The protocol's central commitments — identity as a verifiable property, coordination as a service provided by signed state, infrastructure as replaceable substrate — are internally consistent and documented.
+
+The open work falls into two categories:
+1. **Unresolved contradictions** (above) — where the spec gives incompatible answers and implementation is blocked.
+2. **Open design decisions** (above) — where the spec correctly identifies a boundary and implementation can proceed elsewhere.
+
+Each item is a bounded design decision or reconciliation task, not a fundamental gap.
 
 ---
 
 ### Summary
 
 Grid Network provides a coordination model where **identity is a property proved by signed state**, **infrastructure is a replaceable service**, and **authorization flows from principals to peers without a central authority**. The review-stage specification establishes the cryptographic and structural foundations; the remaining work closes the boundary between design intent and interoperable implementation.
+
+---
+
+*Triage report based on commit `70154b7` (cleanup: fix frozen labels, dated timelines, remove artifact files). Cleanup changes: README wording, 7 files' frozen labels, dated timelines in ROADMAP.md and implementations/README.md, removal of 4 artifact files (.bak, .json). No new specs or mechanisms introduced.*
