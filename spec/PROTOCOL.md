@@ -1,6 +1,6 @@
 # Grid Network Protocol
 
-**Design Document — v0.6.2**
+**Design Document — v0.6.2 (design-review)**
 
 
 Scope: Identity, relationships, authorization, revocation, reachability, transport integration, deployment model, failure semantics, reconciliation
@@ -1875,31 +1875,38 @@ The predecessor identity stream terminates at the point of transition. The succe
 
 ```
 IdentityContinuity {
-    domain_separator   = "grid/identity-continuity/v1"
-    sequence           = 1
-    // previous_hash omitted
-    chain_hash                                   // initial_chain_hash of successor stream
-
+    domain_separator           = "grid/identity-continuity/v1"
+    sequence                   = 1
+    // previous_hash omitted (per §3.5, sequence 1 has no previous_hash)
+    chain_hash                 // chain_hash(1) of successor stream, per standard sequence-1 construction
+    
     peer_id
     previous_root
-    previous_chain_hash                          // terminal chain hash of predecessor stream
+    predecessor_terminal_chain_hash   // terminal chain_hash of predecessor identity stream
     new_root
     continuity_reason
     issued_at
     expires_at
 
-    signature                                    // two-element array [sig_prev, sig_new]
+    signature                  // two-element array [sig_prev, sig_new]
 }
 ```
 
 - `sequence` MUST be exactly 1.
-- `previous_hash` is omitted.
-- `chain_hash` is the `initial_chain_hash` of the **successor** identity stream.
-- `previous_chain_hash` is the terminal `chain_hash` of the **predecessor** identity stream.
+- `previous_hash` is omitted (standard sequence-1 rule).
+- `chain_hash` is the chain_hash(1) of the **successor** identity stream, computed per the standard sequence-1 chain construction in §3.5 / §45.2:
+  ```
+  chain_hash = SHA-256(canonical_cbor([
+      "grid/chain/v1",
+      initial_chain_hash(successor_stream),
+      object_commitment(this_object)
+  ]))
+  ```
+  where `initial_chain_hash(successor_stream) = SHA-256(canonical_cbor(["grid/chain-base/v1", domain_separator, stream_id]))` with the successor stream's `domain_separator` ("grid/identity-document/v1") and `stream_id` ("stream:identity").
+- `predecessor_terminal_chain_hash` is the terminal `chain_hash` of the **predecessor** identity stream. This is a semantic field in the unsigned payload; it is NOT the chain construction's `previous_chain_hash` input (which for sequence 1 is `initial_chain_hash` of the successor stream). The two values are from different sequence spaces and MUST NOT be conflated.
 - `new_root` is the successor Identity Root.
 - `signature` is a two-element array `[sig_prev, sig_new]`, both over the same `signature_input`.
-
-`new_sequence` and `new_chain_hash` from v0.6 are removed.
+- `new_sequence` and `new_chain_hash` from v0.6 are removed.
 
 #### 54.5.3 Stream semantics
 
@@ -1908,49 +1915,11 @@ Predecessor identity stream             Successor identity stream
     (issuer = previous_root)                (issuer = new_root)
         ...                                     IdentityContinuity
         sequence N                              sequence 1
-        chain_hash = H_old                      chain_hash = H_new
-             │                                       │
-             │  dual authorization                   │
-             └──────────────────────────────────────►┘
-```
+        chain_hash = H_old                      chain_hash = H_new (chain_hash(1) of successor)
+             |                                       |
+             |  dual authorization                   |
+             +
 
-The two chain hashes are from different sequence spaces. No comparison between them is performed.
-
-#### 54.5.4 Verification rules
-
-A verifier accepts an `IdentityContinuity` object only when **all** of the following hold:
-
-1. `sequence` == 1.
-2. `previous_hash` is omitted.
-3. `chain_hash` == `initial_chain_hash` of the successor stream.
-4. Both signatures in the two-element array are valid over the same `signature_input`:
-   - `signature[0]` under `previous_root`.
-The second signature is under `new_root`.
-5. `previous_root` equals the verifier's currently trusted identity root for the peer, OR chains from that root through previously accepted `IdentityContinuity` objects.
-6. `previous_chain_hash` equals the verifier's accepted terminal `chain_hash` for the peer's predecessor identity stream.
-7. The successor stream is not already known to the verifier for that peer.
-8. The object is not expired.
-
-#### 54.5.5 Trust chain requirement
-
-A chain of `IdentityContinuity` transitions MUST ultimately terminate at an Identity Root that the verifier accepted as trusted **before** the first transition in the chain.
-
-A chain that begins at an untrusted root MUST NOT be accepted, even if every individual transition is correctly dual-signed.
-
-#### 54.5.6 Effect of acceptance
-
-On acceptance:
-
-- The verifier's trusted identity root for the peer is updated to `new_root`.
-- The verifier's accepted identity stream for the peer is transitioned from the predecessor stream to the successor stream.
-- The successor stream's accepted state is `(issuer = new_root, stream_id = stream:identity, sequence = 1, chain_hash = initial_chain_hash of successor stream)`.
-- The predecessor stream's state is retained for audit.
-
-#### 54.5.7 Recovery from root compromise
-
-`IdentityContinuity` handles orderly transitions: rotation, planned migration, hardware replacement.
-
-`IdentityContinuity` does **not** handle root compromise. Recovery is out-of-band per §54.10.
 
 ### 54.6 RendezvousUpdate
 

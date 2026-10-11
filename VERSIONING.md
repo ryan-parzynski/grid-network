@@ -4,7 +4,7 @@ Grid Network follows semantic versioning for the protocol specification:
 
 ## Format: vMAJOR.MINOR.PATCH
 
-- **v0.6.2** (current, frozen)
+- **v0.6.2** (current, design-review)
 - **v0.7.0** (next: test vectors, cleanup)
 - **v1.0.0** (stable, long-term support)
 

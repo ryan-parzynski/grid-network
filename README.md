@@ -71,7 +71,7 @@ grid-network/
 │
 ├── spec/                     # Normative specifications
 │   ├── README.md
-│   ├── PROTOCOL.md           # Protocol specification (v0.6.2, frozen)
+│   ├── PROTOCOL.md           # Protocol specification (v0.6.2, design-review)
 │   ├── OBJECTS.md            # Byte-level encoding (partial)
 │   └── TEST-VECTORS/         # Test vectors (to be created)
 │

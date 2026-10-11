@@ -341,9 +341,9 @@ chain_hash(N) =
     ]))
 ```
 
-The chain hash commits to the entire history of the stream, not just to the previous object. This is what enables fork detection even when a verifier has seen only one branch.
+The chain hash commits to the entire presented prefix of the stream. It does not by itself reveal unseen siblings. Fork detection requires eligible authenticated conflicting evidence — the verifier must receive and verify two objects at the same sequence number with different object commitments (or their chain hashes) to know a fork occurred.
 
-**Fork detection walkthrough.** Suppose the issuer produces two conflicting objects at sequence 3:
+**Fork evidence walkthrough.** Suppose the issuer produces two conflicting objects at sequence 3:
 
 ```
 Branch A:
@@ -357,10 +357,9 @@ Branch B:
   seq 3 (commitment: c3', chain: h3' = F(h2, c3'))
 ```
 
-A verifier that has accepted sequence 2 has `chain_hash = h2`. When it receives the sequence-3 object from branch A, it recomputes `chain_hash = F(h2, c3)` and compares to the object's stated `chain_hash`. If they match, the object extends the accepted chain. If the verifier instead receives the object from branch B, it recomputes `F(h2, c3')` and gets a different value — the object's stated `chain_hash` (h3') will not match what the verifier computes. The verifier knows a fork has occurred even without having seen branch A's sequence-3 object.
+A verifier that has accepted sequence 2 holds `chain_hash = h2`. When it receives a sequence-3 object, it recomputes `F(h2, c3)` and compares to the object's stated `chain_hash`. If they match, the object extends the accepted chain. If the verifier later receives a *different* sequence-3 object (from branch B) with commitment `c3'` and chain hash `h3'`, it can compare the two commitments at the same sequence position. The conflict `c3 != c3'` (or equivalently `h3 != h3'` with the same predecessor `h2`) is the authenticated evidence of a fork. Without seeing both branches, the verifier cannot distinguish between a valid extension and a forked branch — the chain hash only commits to the prefix it has seen.
 
-With a linear chain (previous_hash only), the verifier would need to see both branches to detect the fork.
-
+The "Fork detection walkthrough" in MODEL.md Part A.3 is replaced by the "Fork evidence walkthrough" above. The key correction: a verifier with only one branch's sequence-3 object accepts it as a valid chain extension. Fork detection occurs only when the verifier later receives an eligible authenticated conflicting object at the same sequence number from a different branch. The cumulative hash commits to the presented prefix; it does not reveal unseen siblings.
 ## A.4 Payload ID and object ID
 
 Two identifiers serve different purposes.
