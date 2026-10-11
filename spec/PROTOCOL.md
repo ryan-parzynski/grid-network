@@ -400,6 +400,8 @@ Dad → Ryan: jellyfin.stream
 
 A grant contains: relationship ID, issuer, subject, device scope (optional), capabilities, resources, constraints, lease policy, issuance info, and signature.
 
+**Known issue:** Grant acceptance may be conflated with authorization in implementation logic. PROTOCOL.md §12.4 distinguishes PENDING/RECOGNIZED/TERMINATED as verifier-derived states, and §12.4 explicitly states "`PENDING` does not contribute to authorization" and "`RECOGNIZED` is required for authorization." However, the verification procedure (OBJECTS.md §5.3 Step 11 / §9 Phase 11) for authorization objects (Grant, Lease) requires "relationship is `RECOGNIZED`, grant is `GRANTED`" — the grant's own state (`GRANTED` vs `EXPIRED`/`REVOKED`) is separate from the relationship state. Implementations must not treat grant receipt as authorization without checking relationship state and lease validity. (open blocker)
+
 Grants are immutable objects within the Authorization Key's authorization stream. Any change produces a new grant with a new `grant_id`.
 
 ---
@@ -631,6 +633,8 @@ The six-digit value is a temporary human coordination mechanism, not a credentia
 
 V1 pairing MUST use an established PAKE (SPAKE2 or CPace).
 
+**Open blocker:** PAKE selection remains unresolved (SPAKE2 vs CPace). This blocks pairing, transcript binding, and test vectors. The exact PAKE, transcript construction, identity binding, protocol version and context binding, replay protection, code lifetime, retry limits, and enumeration resistance must be specified before wire protocol and test vector completion. (see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+
 The final protocol must specify:
 
 - Exact PAKE.
@@ -858,6 +862,8 @@ A RelayTicket authorizes transport use only. It cannot create authorization.
 
 WireGuard is the preferred initial transport.
 
+**Open blocker:** Wire protocol is missing. No transport encoding, framing, or RPC definitions exist. Object delivery, rendezvous API endpoints, relay wire format, and ticket presentation flow are not specified. This is an interoperability blocker. (see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+
 ---
 
 ## 35. Enforcement
@@ -952,6 +958,8 @@ Verifiers apply the protocol-defined clock-skew tolerance.
 ```
 MAX_CLOCK_SKEW = 5 minutes
 ```
+
+**Known issue:** The verification procedure (OBJECTS.md §5.3 Step 10 / §9 Phase 10) assumes access to a wall clock with this skew tolerance and a monotonic clock for `acceptance_time`. The clock/time source interface is not specified in OBJECTS.md or PROTOCOL.md. (open blocker; see OBJECTS.md §Unresolved Dependencies item 6)
 
 ### 40.5 Issued-at ordering
 
@@ -1071,8 +1079,10 @@ Stream identifiers:
 stream:identity
 stream:reachability:<device_id>
 stream:service:<service_id>
-stream:authorization:<authorization_key_id>
+stream:authorization:<autho..._id>
 ```
+
+**Known issue:** This section defines text-string stream identifiers (`stream:identity`, `stream:reachability:<device_id>`, etc.) that are incompatible with the hash-derived opaque `stream_id` model in OBJECTS.md §7 (`stream_id = H(principal_id || signing_key_id || stream_context || epoch)`). The two models coexist in normative text and must be reconciled before implementation. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
 
 An Authorization Key owns exactly one authorization stream. Grants, leases, and revocations issued by K occupy that stream and consume sequence numbers regardless of object type.
 
@@ -1182,6 +1192,7 @@ KeyState {
 }
 ```
 
+**Known issue:** The KeyState structure and the authority state representation (identity root, authorized keys, delegations, revocation state, key status) are defined here but the query interface (e.g., "is key K authorized for role R at sequence S?") is not formally specified in OBJECTS.md. Verification §5.3 Step 9 / §9 Phase 9 requires this interface. (open blocker; see OBJECTS.md §Unresolved Dependencies item 3)
 
 ### 47.3 Relationship state
 
@@ -1198,6 +1209,8 @@ RelationshipState {
     termination?
 }
 ```
+
+**Known issue:** The exact algorithm for deriving `RECOGNIZED` state from accepted `RelationshipAssertion` and `RelationshipTermination` objects is specified in PROTOCOL.md §12.4 but the verification procedure's dependency on it (OBJECTS.md §5.3 Step 11 / §9 Phase 11) should be acknowledged. The query interface for relationship state derivation is not formally specified. (open blocker; see OBJECTS.md §Unresolved Dependencies item 5)
 
 ### 47.4 Grant state
 
@@ -1242,6 +1255,8 @@ ChainState {
 
 `sync_state` ∈ { `IDLE`, `SYNCING`, `FORKED` }.
 
+**Known issue:** The ChainState structure lacks the per-stream lookup interface needed by the verification procedure (OBJECTS.md §5.3 Step 6 / §9 Phase 6: "the verifier's accepted `chain_hash` for sequence-1 in the same `(issuer, stream_id)`"). The query interface for stream state access is not formally specified. (open blocker; see OBJECTS.md §Unresolved Dependencies item 2)
+
 ### 47.7 Reachability state
 
 Soft state. Loss MUST NOT invalidate identity, relationship, grant, or revocation state.
@@ -1267,6 +1282,8 @@ Implementations MUST use a monotonic local clock for elapsed-duration calculatio
 7. Detect rollback, fork, extension, or gap.
 8. Apply key transitions.
 9. Apply revocations.
+
+**Open blocker:** This processing order (signature before chain continuity, authority before sequence) differs from OBJECTS.md §5.3 / §9 verification order (CBOR → envelope → domain separator → schema → sequence → chain linkage → signature → authority). The two procedures conflict on validation ordering. This is part of the verification procedure duplication / authority conflict between OBJECTS.md and PROTOCOL.md. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
 10. Apply relationship transitions.
 11. Apply grants.
 12. Apply leases.
@@ -1398,6 +1415,8 @@ UNKNOWN → CURRENT → { SUPERSEDED (terminal), EXPIRED (terminal) }
 ---
 
 ## 49. Authority Domains
+
+**Known issue:** Authority/revocation/relationship query interfaces are unspecified. §47 defines state structures (PrincipalState, KeyState, RelationshipState, GrantState, LeaseState, ChainState) but not the query API for "is key K authorized for role R at sequence S?", "does revocation X invalidate object Y at sequence Z?", or "what is the derived relationship state for relationship_id R?". (open blocker; see OBJECTS.md §Unresolved Dependencies items 2, 3, 4, 5)
 
 ### 49.1 Identity authority
 
@@ -1903,6 +1922,8 @@ IdentityContinuity {
   ]))
   ```
   where `initial_chain_hash(successor_stream) = SHA-256(canonical_cbor(["grid/chain-base/v1", domain_separator, stream_id]))` with the successor stream's `domain_separator` ("grid/identity-document/v1") and `stream_id` ("stream:identity").
+
+**Known issue:** IdentityContinuity chain-base inconsistency across OBJECTS.md §3.5 (uses object's `domain_separator` for `initial_chain_hash`), OBJECTS.md §4.5 (registers "grid/identity-document/v1" for IdentityDocument), and PROTOCOL.md §54.5.2 (explicitly uses "grid/identity-document/v1" and "stream:identity" for successor stream). For IdentityContinuity (domain_separator "grid/identity-continuity/v1"), the chain-base uses a different domain_separator than the object's own. The specification must clarify whether the chain-base domain_separator is the stream's canonical domain_separator or the object's domain_separator. (open blocker)
 - `predecessor_terminal_chain_hash` is the terminal `chain_hash` of the **predecessor** identity stream. This is a semantic field in the unsigned payload; it is NOT the chain construction's `previous_chain_hash` input (which for sequence 1 is `initial_chain_hash` of the successor stream). The two values are from different sequence spaces and MUST NOT be conflated.
 - `new_root` is the successor Identity Root.
 - `signature` is a two-element array `[sig_prev, sig_new]`, both over the same `signature_input`.
@@ -1919,7 +1940,7 @@ Predecessor identity stream             Successor identity stream
              |                                       |
              |  dual authorization                   |
              +
-
+**Open blocker:** §54.5.4–§54.5.7 (verification rules, trust chain requirements, effect of acceptance, recovery from root compromise) are missing from both this snapshot and the prior. The diagram truncates at "dual authorization" with no closing content. Source loss vs intentional removal unconfirmed. (see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions and §Open Investigation)
 
 ### 54.6 RendezvousUpdate
 
@@ -2064,6 +2085,8 @@ V1 MUST include:
 21. WireGuard integration.
 22. Offline verification.
 23. Positive and negative test vectors.
+
+**Known issue:** Test vectors have not been created. Their production is blocked on OBJECTS.md §§6–10 schema completion and PAKE selection (§25). (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
 
 Deferrable to V1.1: multi-server rendezvous, relay fallback, service host migration tooling, comprehensive failure test coverage.
 
@@ -2293,6 +2316,8 @@ Ed25519, SHA-256, deterministic CBOR.
 
 ## 60. Test Vectors and Conformance
 
+**Known issue:** Test vectors have not been created. Their production is blocked on OBJECTS.md §§6–10 schema completion and PAKE selection (§25). (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
+
 ### 60.1 Purpose
 
 Test vectors define exact byte sequences and their expected interpretations.
@@ -2320,6 +2345,8 @@ Where prose and a normative test vector appear to conflict, the specification mu
 ### 60.6 Rejection classes
 
 A conforming implementation MUST reject every negative test vector with the specified rejection class (per OBJECTS.md §5.7).
+
+**Known issue:** The rejection classes in OBJECTS.md §10.1 must align with the `expected_rejection` values in negative test vectors. Test vectors do not yet exist. (future work; see OBJECTS.md §Unresolved Dependencies item 8)
 
 ---
 

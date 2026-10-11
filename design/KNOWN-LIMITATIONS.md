@@ -191,7 +191,10 @@ These are structural inconsistencies where the specification gives implementers 
 | **Verification authority: §5.3 vs §9** | §9 explicitly defers to §5.3 ("§5.3 takes precedence"), but both contain full 12-phase procedures. Normative text has two copies with a stated tiebreak — not a single source of truth. |
 | **§5.3 step 6 ambiguity** | "sequence-1" reads as "the object at sequence number 1" rather than "the object at sequence N-1." §9 Phase 6 phrases it correctly ("the verifier's accepted `chain_hash` for `sequence-1`"), but §5.3 is authoritative. |
 | **§54.5 completeness** | §54.5.1–§54.5.3 exist (model, schema, stream semantics). §54.5.4–§54.5.7 (verification rules, trust chain, effect of acceptance, recovery from root compromise) are absent in both this snapshot and the prior. Diagram truncates at "dual authorization" with no closing content. Source loss vs intentional removal unconfirmed. |
-| **§7 stale dependencies** | §7 ends with a "Missing schema bindings" block referencing six files that do not exist: `SCHEMA.md`, `CRYPTO.md`, `ENCODING.md`, `ROUTING.md`, `CONTINUITY.md`. Note-to-self left in normative section. |
+| **§7 dangling normative file references** | §7 ends with a "Missing schema bindings" block referencing six files that do not exist: `SCHEMA.md`, `CRYPTO.md`, `ENCODING.md`, `ROUTING.md`, `CONTINUITY.md`. These are missing normative material (KeyAuthorizationRecord, stream_context, epoch encoding, varint spec, hash function, signature bindings, routing key, continuity mechanism), not mere note-to-self. |
+| **PAKE selection** | The pairing protocol requires SPAKE2 or CPace but does not mandate one. This blocks pairing, transcript binding, wire protocol, and test vector completion. |
+| **Wire protocol missing** | No transport encoding, framing, or RPC definitions exist. Object delivery, rendezvous API endpoints, relay wire format, and ticket presentation flow are not specified. This is an interoperability blocker. |
+| **Map-ordering citation error** | OBJECTS.md §2.7 cites RFC 8949 §4.2.1 for length-first core deterministic encoding; the correct section is §4.2.3. This affects canonical encoding. |
 
 ---
 
@@ -206,8 +209,6 @@ These are bounded design choices where the architecture anticipates a decision b
 | **Transport-to-identity binding** | Binding rendezvous/relay connections to the identity continuity chain; preventing connection hijacking when transport changes; defining the wire-level binding mechanism |
 | **Revocation ordering** | Resolving concurrent revocations of the same key; defining the fork-resolution rule when two revocation objects claim the same `effective_sequence` |
 | **Delayed observation / freshness rules** | Formalizing how verifiers handle objects received significantly after their validity window; defining freshness thresholds and grace periods without central time authority |
-| **PAKE selection** | Choosing between SPAKE2 and CPace for the pairing protocol; this blocks wire protocol and test vector completion |
-| **Wire protocol / relay behavior** | Specifying the relay wire format, ticket presentation flow, rendezvous API endpoints, and relay capability advertisement semantics |
 | **Delegated resolver roles** | Defining resolver authority, challenge semantics, and dispute resolution for delegated identity resolution |
 | **Relay profile / ticket stream semantics** | Independent artifact vs stream-bound; rotation transition table; capability advertisement format |
 | **Conformance scenarios and test vectors** | Producing the 50+ normative test vectors blocked on OBJECTS.md §§6–10 schema completion and PAKE selection |

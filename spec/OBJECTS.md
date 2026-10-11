@@ -46,6 +46,8 @@ Map keys MUST be ordered according to CBOR deterministic encoding (RFC 8949 §4.
 
 This is the **length-first core deterministic encoding** (RFC 8949 §4.2.3), NOT the core deterministic encoding of §4.2.1 (which uses bytewise lexicographic ordering of the encoded key bytes). Non-canonical map ordering is malformed.
 
+**Open blocker:** The citation of RFC 8949 §4.2.1 for the length-first rule is incorrect — §4.2.1 defines core deterministic encoding (bytewise lexicographic). The length-first rule is in §4.2.3. The text correctly describes the length-first rule but cites the wrong RFC section. This affects canonical encoding and must be corrected for interoperable implementation. (open blocker)
+
 ### 2.8 Set semantics
 
 A protocol set<T> is encoded as a definite-length CBOR array whose elements are:
@@ -162,6 +164,8 @@ initial_chain_hash =
         stream_id
     ]))
 ```
+
+**Known issue:** The `domain_separator` in `initial_chain_hash` uses the object's domain_separator. For multi-type streams (e.g., authorization stream carrying Grants, Leases, GrantRevocation, LeaseRevocation with different domain_separators), the behavior is ambiguous: which domain_separator is used for the chain-base? The specification does not clarify whether each object type gets its own chain or shares one chain with a fixed domain_separator. (open blocker)
 
 Two distinct chain links exist. They serve different purposes and MUST NOT be conflated.
 
@@ -459,6 +463,8 @@ When a verifier receives an object, it MUST execute the following procedure. Ste
 - Verify computed `chain_hash` equals the object's `chain_hash` field.
 - If any check fails: REJECT as `CHAIN_MISMATCH`.
 
+**Open blocker:** The phrase "accepted `chain_hash` of sequence-1" is ambiguous — it reads as "the object at sequence number 1" rather than "the object at sequence N−1" (the predecessor). The intended rule is predecessor commitment / chain_hash(N−1) semantics. The current wording in §5.3 (authoritative per §9) is ambiguous and must be clarified. The verifier must retain or recompute the predecessor's object_commitment (previous_hash) and chain_hash (previous_chain_hash) for the next chain check. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+
 **Step 7: Reconstruct signature input**
 - Compute `signature_input` = `canonical_cbor(["grid/signature/v1", domain_separator, unsigned_payload, chain_hash])`.
 
@@ -543,11 +549,15 @@ When verification fails, the verifier MUST classify the failure into exactly one
 
 [Unchanged — placeholder for object schemas]
 
+**Known issue:** Object schemas for all 19 domain separators (§4.5) are not yet authored in this section. Schema-specific validation in §5.3 Step 4 / §9 Phase 4 references §6 as the authority, but schemas currently reside in PROTOCOL.md §10–§16, §30–§33, §36, §52, §54. This section must be completed before implementation can proceed. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+
 ---
 
 ## §7: STREAM IDENTITY
 
 ### Stream Identity
+
+**Known issue:** This section defines a hash-derived opaque `stream_id` model (`stream_id = H(principal_id || signing_key_id || stream_context || epoch)`) that is incompatible with the text-string stream identifiers defined in PROTOCOL.md §45.1 (`stream:identity`, `stream:reachability:<device_id>`, `stream:service:<service_id>`, `stream:authorization:<auth_key_id>`). The two models coexist in normative text and must be reconciled before implementation. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
 
 **Core Concepts**
 
@@ -593,17 +603,23 @@ When `stream_epoch` increments, the issuer publishes a new key authorization rec
 - ROUTING.md: routing key definition, epoch-aware updates
 - CONTINUITY.md: epoch chain as sole continuity mechanism
 
+**Open blocker:** The above "Missing schema bindings" and "Open dependencies" blocks reference six files (SCHEMA.md, CRYPTO.md, ENCODING.md, ROUTING.md, CONTINUITY.md) that do not exist in the repository. These are dangling normative references to missing spec files (KeyAuthorizationRecord, stream_context, epoch encoding, varint spec, hash function, signature bindings, routing key, continuity mechanism), not mere repository hygiene. They represent missing normative material required for implementation. (see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+
 ---
 
 ## §8: CANONICAL FORMS
 
 [Unchanged — placeholder for canonical forms]
 
+**Known issue:** This section is a placeholder. Canonical form definitions for all object types are required for test vector generation and interoperability. (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
+
 ---
 
 ## §9: VERIFICATION PROCEDURE — DETAILED REFERENCE
 
 **This section provides a reference-level restatement of the verification procedure defined in §5.3. It is normative. In case of any discrepancy between §5.3 and this section, §5.3 takes precedence.**
+
+**Known issue:** This section duplicates the verification procedure from §5.3 with a stated tiebreak (§5.3 takes precedence). Normative text has two copies rather than a single source of truth. §9 should be marked informative/reference-only. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
 
 The verification procedure consists of 12 sequential validation phases. Validation is pure with respect to accepted state; commitment is the only mutation.
 
@@ -644,6 +660,8 @@ The verification procedure consists of 12 sequential validation phases. Validati
 - Compute `chain_hash` per §3.5 using `previous_chain_hash` and `object_commitment`.
 - Verify computed `chain_hash` == object's `chain_hash` field.
 - Reject as `CHAIN_MISMATCH` if any check fails.
+
+**Known issue:** §5.3 Step 6 (authoritative) phrases the `sequence > 1` case as "the accepted `chain_hash` of sequence-1" which reads ambiguously as "the object at sequence number 1" rather than "the object at sequence N-1." §9 Phase 6 phrases it correctly ("the verifier's accepted `chain_hash` for `sequence-1`"). Since §5.3 is authoritative per §9, the authoritative text contains the ambiguity. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
 
 ### Phase 7: Signature Input Reconstruction
 - Compute `signature_input` per §3.9 using `domain_separator`, `unsigned_payload`, and verified `chain_hash`.
@@ -733,20 +751,22 @@ function verify(object_bytes, accepted_state, now):
 
 ## Unresolved Dependencies
 
-1. **§6 Object Schemas** — The semantic validation rules in §5.3 Step 11 / §9 Phase 11 and the `MALFORMED_SCHEMA` rejection class require complete object schemas for all 19 object types. These schemas are not yet specified in OBJECTS.md.
+**Known issue:** The following items are unresolved dependencies that block implementation. They are tracked here and in design/KNOWN-LIMITATIONS.md.
 
-2. **Stream State Lookup Semantics** — Phase 6 (§9) and Step 6 (§5.3) refer to "the verifier's accepted `chain_hash` for sequence-1 in the same `(issuer, stream_id)`". The precise API/interface for this lookup (including handling of gaps, forks, and the `SYNCING`/`FORKED` states from PROTOCOL.md §47) is defined in PROTOCOL.md §47 but the interaction contract between the verification procedure and the stream state machine needs explicit specification.
+1. **§6 Object Schemas** — The semantic validation rules in §5.3 Step 11 / §9 Phase 11 and the `MALFORMED_SCHEMA` rejection class require complete object schemas for all 19 object types. These schemas are not yet specified in OBJECTS.md. (open blocker)
 
-3. **Authority State Representation** — Step 9 / Phase 9 requires determining "the expected signing public key from accepted authority state per §5.2". The representation of accepted authority state (identity root, authorized keys, delegations, revocation state, key status) is defined in PROTOCOL.md §47 but the query interface (e.g., "is key K authorized for role R at sequence S?") is not formally specified in OBJECTS.md.
+2. **Stream State Lookup Semantics** — Phase 6 (§9) and Step 6 (§5.3) refer to "the verifier's accepted `chain_hash` for sequence-1 in the same `(issuer, stream_id)`". The precise API/interface for this lookup (including handling of gaps, forks, and the `SYNCING`/`FORKED` states from PROTOCOL.md §47) is defined in PROTOCOL.md §47 but the interaction contract between the verification procedure and the stream state machine needs explicit specification. (open blocker)
 
-4. **Revocation State Query** — Step 10 / Phase 10 requires checking "no applicable revocation". The revocation state machine (PROTOCOL.md §48.4, §20) defines states but the verification-time query "does revocation X invalidate object Y at sequence Z?" needs a precise specification.
+3. **Authority State Representation** — Step 9 / Phase 9 requires determining "the expected signing public key from accepted authority state per §5.2". The representation of accepted authority state (identity root, authorized keys, delegations, revocation state, key status) is defined in PROTOCOL.md §47 but the query interface (e.g., "is key K authorized for role R at sequence S?") is not formally specified in OBJECTS.md. (open blocker)
 
-5. **Relationship State Derivation** — The semantic check for authorization objects requires the verifier-derived `RECOGNIZED` relationship state (PROTOCOL.md §12.4, §47.3). The exact algorithm for deriving this state from accepted `RelationshipAssertion` and `RelationshipTermination` objects is specified in PROTOCOL.md but the verification procedure's dependency on it should be acknowledged.
+4. **Revocation State Query** — Step 10 / Phase 10 requires checking "no applicable revocation". The revocation state machine (PROTOCOL.md §48.4, §20) defines states but the verification-time query "does revocation X invalidate object Y at sequence Z?" needs a precise specification. (open blocker)
 
-6. **Clock and Time Source** — `MAX_CLOCK_SKEW = 5 minutes` is defined in PROTOCOL.md §40.4. The verification procedure assumes access to a wall clock with this skew tolerance and a monotonic clock for `acceptance_time`. The interface is not specified in OBJECTS.md.
+5. **Relationship State Derivation** — The semantic check for authorization objects requires the verifier-derived `RECOGNIZED` relationship state (PROTOCOL.md §12.4, §47.3). The exact algorithm for deriving this state from accepted `RelationshipAssertion` and `RelationshipTermination` objects is specified in PROTOCOL.md but the verification procedure's dependency on it should be acknowledged. (open blocker)
 
-7. **Conformance Scenarios (PROTOCOL.md §61)** — The 17 conformance scenarios will test the verification procedure end-to-end. Any gaps in the procedure will surface there.
+6. **Clock and Time Source** — `MAX_CLOCK_SKEW = 5 minutes` is defined in PROTOCOL.md §40.4. The verification procedure assumes access to a wall clock with this skew tolerance and a monotonic clock for `acceptance_time`. The interface is not specified in OBJECTS.md. (open blocker)
 
-8. **Test Vectors (§11)** — The test vector format (§11.1) references rejection classes and verification steps. The classes in §10.1 must align with the `expected_rejection` values in negative test vectors.
+7. **Conformance Scenarios (PROTOCOL.md §61)** — The 17 conformance scenarios will test the verification procedure end-to-end. Any gaps in the procedure will surface there. (future work)
 
-9. **Wire Protocol / Transport** — Object delivery, fetching missing objects during gaps (`SYNCING` state), and rendezvous interaction are outside OBJECTS.md scope but affect when/which objects are presented to verification.
+8. **Test Vectors (§11)** — The test vector format (§11.1) references rejection classes and verification steps. The classes in §10.1 must align with the `expected_rejection` values in negative test vectors. (future work)
+
+9. **Wire Protocol / Transport** — Object delivery, fetching missing objects during gaps (`SYNCING` state), and rendezvous interaction are outside OBJECTS.md scope but affect when/which objects are presented to verification. (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
