@@ -39,7 +39,7 @@ For example, even if a path `A → R1 → R2 → R3 → B` is encrypted, an obse
 
 The kernel can support anonymity without being redesigned around anonymity, but a genuinely strong anonymity system is a major subsystem in its own right.
 
-That is another reason not to put it in v1.
+Another reason not to include it in v1 is that a genuinely strong anonymity system is a major subsystem in its own right.
 
 ### 1.2 Anonymity Extension Architecture
 

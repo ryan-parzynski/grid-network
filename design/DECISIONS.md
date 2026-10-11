@@ -162,6 +162,38 @@ The kernel provides stable primitives. Extensions compose those primitives.
 
 The distinction is important: enterprise functionality is mostly policy layered over the kernel. Anonymity requires new cryptographic/network machinery.
 
+
+### Kernel/Extension Architecture
+
+The architecture separates layers as follows:
+
+```
+┌─────────────────────────────────────────────┐
+│ Applications                                │
+├─────────────────────────────────────────────┤
+│ Enterprise / policy / privacy extensions    │
+│                                             │
+│ Groups • SSO • posture • SIEM • JIT • PAM   │
+│ Onion routing • privacy policies            │
+├─────────────────────────────────────────────┤
+│         GRID NETWORK KERNEL                 │
+│                                             │
+│ Identity                                    │
+│ Relationships                               │
+│ Authorization                               │
+│ Grants / Leases                             │
+│ Revocation / Freshness                      │
+│ Service identity                            │
+│ Reachability                                │
+│ Rendezvous                                  │
+│ Relay                                       │
+│ Transport                                   │
+├─────────────────────────────────────────────┤
+│ Existing Internet                           │
+└─────────────────────────────────────────────┘
+```
+
+The kernel provides stable primitives. Extensions compose those primitives.
 ### 8.2 Enterprise Functionality as Policy Layers
 
 Enterprise functionality is mostly policy layered over the kernel. The existing model already has the right primitives:
@@ -194,6 +226,26 @@ Authorization
     ↓
 Existing Grant / Lease
 
+
+### DevicePostureAssertion Primitive
+
+A DevicePostureAssertion is a signed object that conveys device compliance state to the authorization layer.
+
+Structure:
+```
+DevicePostureAssertion {
+    device
+    issuer
+    assessment
+    issued_at
+    expires_at
+    signature
+}
+```
+
+The kernel does not validate device posture; it validates the signature and freshness of the assertion. Policy above the kernel evaluates the assessment field.
+
+This primitive enables enterprise posture checks (CrowdStrike, Intune, Jamf, or any MDM/EDR) without extending the kernel.
 A future enterprise layer could simply say:
 
 Alice is a member of Engineering.
@@ -246,7 +298,7 @@ Future work can be classified into three buckets:
 
 The hard part is the foundation. Getting canonical serialization, signatures, sequence spaces, chain semantics, identity continuity, authority boundaries, relationship semantics, revocation, freshness, leases, and deterministic verification exactly right is more foundational than adding an enterprise dashboard later.
 
-Once that foundation is stable, an enterprise implementation doesn’t have to reinvent the protocol. It can essentially say: “Here’s our organization policy. Here’s our signed device posture. Here’s our role. Here’s our authorization decision.” An anonymity implementation can say: “Here’s a different transport path that happens to use several Grid Network relays.” That’s the architecture: hard things later should be new layers, not excuses to break the kernel.
+Once that foundation is stable, an enterprise implementation doesn’t have to reinvent the protocol. The enterprise layer presents the organization policy, the signed device posture, the role, and the authorization decision. An anonymity implementation presents a different transport path that uses several Grid Network relays. That architecture ensures hard things later become new layers, not excuses to break the kernel.
 
 
 *End of Design Decisions*
