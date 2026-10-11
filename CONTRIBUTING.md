@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Grid Network!
 
 ## Current Phase: Documentation & Design (Phase 0)
 
-The protocol specification (PROTOCOL.md v0.6.2) is **frozen**. Current work focuses on:
+The protocol specification (PROTOCOL.md v0.6.2) is **design-review**. Current work focuses on:
 
 1. **Complete OBJECTS.md** — Byte-level encoding schemas (§6–§10)
 2. **Produce test vectors** — Canonical CBOR + cryptographic constructions

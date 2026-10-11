@@ -21,15 +21,15 @@ The implementation follows the roadmap phases:
 
 | Phase | Timeline | Focus |
 |-------|----------|-------|
-| **Phase 0** | Q4 2024 | Documentation (complete) |
-| **Phase 1** | Q1–Q2 2025 | Reference Implementation — Core agent, local API, CLI tools, test suite, 2+ independent implementations |
-| **Phase 2** | Q2 2025 | Local Connectivity — LAN discovery, local relay, device pairing UI, cross-platform support |
-| **Phase 3** | Q2–Q3 2025 | Remote Reachability — NAT traversal, candidate gathering, 70%+ direct connection success |
-| **Phase 4** | Q3 2025 | Coordinator Resilience — Multiple rendezvous, replica behavior, recovery manifests |
-| **Phase 5** | Q3–Q4 2025 | Relay Fallback — Relay protocol, tickets, bandwidth quotas, priority classes, PROTOCOL.md freezes as v1.0 |
-| **Phase 6** | Q4 2025 – Q1 2026 | Mobile Integration — iOS/Android agents, background execution, battery <5%/day |
-| **Phase 7** | Q1–Q2 2026 | Community Infrastructure — Operator tooling, capacity declarations, federation, credit system |
-| **Phase 8** | Q2+ 2026 | Advanced Features — Multi-hop relay, multipath, privacy transport, threshold recovery |
+| **Phase 0** | review-stage | Documentation (complete) |
+| **Phase 1** | review-stage | Reference Implementation — Core agent, local API, CLI tools, test suite, 2+ independent implementations |
+| **Phase 2** | review-stage | Local Connectivity — LAN discovery, local relay, device pairing UI, cross-platform support |
+| **Phase 3** | review-stage | Remote Reachability — NAT traversal, candidate gathering, 70%+ direct connection success |
+| **Phase 4** | review-stage | Coordinator Resilience — Multiple rendezvous, replica behavior, recovery manifests |
+| **Phase 5** | review-stage | Relay Fallback — Relay protocol, tickets, bandwidth quotas, priority classes |
+| **Phase 6** | review-stage | Mobile Integration — iOS/Android agents, background execution, battery <5%/day |
+| **Phase 7** | review-stage | Community Infrastructure — Operator tooling, capacity declarations, federation, credit system |
+| **Phase 8** | future (TBD) | Advanced Features — Multi-hop relay, multipath, privacy transport, threshold recovery |
 
 ## Implementation Approach
 

@@ -13,7 +13,7 @@ Application integrations for Grid Network.
 
 ## Current Status
 
-Application integrations begin in Phase 10+. See `../ROADMAP.md`.
+Application integrations begin in future phases. See `../ROADMAP.md`.
 
 Target applications for integration:
 - Immich (photo management)
