@@ -38,7 +38,7 @@ BitTorrent doesn't solve this: it coordinates content distribution, not authenti
 
 Bitcoin doesn't solve this: it provides a global ledger but at enormous cost, and it doesn't provide a practical identity layer for normal devices.
 
-Tailscale doesn't solve this: it makes Grid Network VPNs pleasant, but the identity layer is owned by a company and not portable.
+Tailscale doesn't solve this: it makes mesh VPNs pleasant, but the identity layer is owned by a company and not portable.
 
 Headscale doesn't solve this: it self-hosts Tailscale's coordination, but inherits Tailscale's account-based identity model.
 

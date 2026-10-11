@@ -579,9 +579,9 @@ When a verifier receives an object:
 - Compare to object's stated payload_id
 
 **Step 5: Recompute chain_hash**
-- If sequence == 1: use domain_separator as previous
+- If sequence == 1: use initial_chain_hash as previous_chain_hash
 - If sequence > 1: lookup previous object's chain_hash
-- Hash with object_id
+- Hash with object_commitment
 - Compare to object's stated chain_hash
 
 **Step 6: Verify signature**

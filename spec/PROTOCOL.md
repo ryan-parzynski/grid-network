@@ -734,6 +734,7 @@ OperatorManifest {
     operator_root
     nodes
     federation_peers
+    current_relay_authority_key
     issued_at
     expires_at
 }
@@ -742,6 +743,7 @@ OperatorManifest {
 - Signed by the operator's Identity Root.
 - Occupies the operator's `stream:identity`.
 - Not an assertion about any principal, service, or authorization stream.
+- `current_relay_authority_key` — the currently active Relay Authority Key for validating relay tickets.
 
 ### 30.4 Rendezvous invariant
 
@@ -752,6 +754,22 @@ OperatorManifest {
 ### 30.5 Rendezvous trust model
 
 A malicious rendezvous server may provide stale or false endpoints, suppress endpoint information, observe metadata, or attempt DoS. It MUST NOT be able to forge identity, authorization, or revocation; create a valid lease; or decrypt transport traffic.
+
+### 30.6 Rendezvous identity state distribution
+
+**Normative:** Rendezvous servers MUST accept and serve identity documents and `IdentityContinuity` objects in addition to reachability records.
+
+**Rationale:** The protocol assumes identity state propagates through peer-to-peer contact, but this fails when peers are disconnected — which is exactly when synchronization matters most. Without this change, a peer who hasn't communicated with another peer in months cannot verify that peer's current state, because the peer's anchor may be stale and there is no way to obtain current state.
+
+**Scope:** The rendezvous layer's scope is extended, not the object model. The endpoints for publication and query are extended; the objects themselves are unchanged.
+
+**Trust model:** Rendezvous remains untrusted. Identity documents are still signed by their issuers; the rendezvous cannot forge them.
+
+**Wire-level implications (when wire protocol is specified):**
+- `POST /v1/identity` — publish an identity document (and optionally the continuity chain to the publisher's previous anchor)
+- `GET /v1/identity/{peer_id}` — fetch the current identity document for a peer
+
+Peers still need to be able to reach the rendezvous. If they can't, this change doesn't help. That's a narrower limitation than having no state distribution at all.
 
 ---
 
@@ -771,7 +789,7 @@ A malicious rendezvous server may provide stale or false endpoints, suppress end
 
 ```
 ReachabilityRecord {
-    domain_separator   = "grid/reachability-record/v1"
+    domain_separator       = "grid/reachability-record/v1"
     sequence
     previous_hash?
     chain_hash
@@ -784,6 +802,8 @@ ReachabilityRecord {
     transport
     observed_at
     expires_at
+    published_at
+    identity_sequence
 }
 ```
 
@@ -791,7 +811,14 @@ ReachabilityRecord {
 
 Each device maintains a linear chain. Higher `sequence` supersedes lower.
 
-### 32.2 Endpoint hints are not authoritative
+### 32.2 Reachability freshness fields
+
+- `published_at` — wall-clock timestamp when the record was published to rendezvous (Unix epoch seconds).
+- `identity_sequence` — the sequence number of the publisher's latest accepted identity document at the time of publication.
+
+These fields allow a verifier to determine whether its cached identity state is current. A verifier that fetches a reachability record and finds `identity_sequence` greater than its accepted identity sequence for that peer MUST refresh identity state before using the record.
+
+### 32.3 Endpoint hints are not authoritative
 
 A cached endpoint is a hint, not a destination.
 
@@ -2001,12 +2028,12 @@ Applications consume authenticated identity and authorized connections. They do 
 ### 55.2 Local interface
 
 ```
-Grid Network.discover()                     → list of known peers
-Grid Network.resolve(peer_id)               → peer state
-Grid Network.connect(service_link_id, cap)  → local connection handle
-Grid Network.authorize(peer_id, capability) → authorization decision
-Grid Network.revoke(object_id)              → issue revocation
-Grid Network.status()                       → daemon and peer state
+grid.discover()                     → list of known peers
+grid.resolve(peer_id)               → peer state
+grid.connect(service_link_id, cap)  → local connection handle
+grid.authorize(peer_id, capability) → authorization decision
+grid.revoke(object_id)              → issue revocation
+grid.status()                       → daemon and peer state
 ```
 
 ### 55.3 Connection handles
@@ -2625,7 +2652,7 @@ Each layer is independent. Layer 1 does not depend on Layer 3; Layer 3 consumes 
 
 **Contains:** the material that makes Layer 1 implementable safely. Threat model, blast-radius analysis, verifier processing rules, parser hardening, resource limits, rate limiting, anti-amplification, crash/restart behavior, persistent state integrity, concurrency constraints, fuzzing requirements, conformance levels.
 
-**Corresponds to:** `SECURITY.md` and `IMPLEMENTATION.md` (to be drafted).
+**Corresponds to:** `design/THREAT-MODEL.md` and `design/DECISIONS.md` (existing).
 
 **Change rate:** moderate, technical.
 
@@ -2660,30 +2687,28 @@ grid/
 │
 ├── PROTOCOL.md               ← this document (v0.6.2)
 ├── OBJECTS.md                ← canonical encoding, schemas, vectors
-├── SECURITY.md               ← threat model, verifier rules (to draft)
-├── IMPLEMENTATION.md         ← Grid Network Agent architecture (to draft)
-├── CONNECTIVITY.md           ← connectivity architecture (to draft)
+├── CONNECTIVITY.md           ← connectivity architecture (existing)
 ├── VERSIONING.md             ← §64 of this document (may split)
 ├── TEST-VECTORS/             ← byte-exact normative cases
 ├── VISION.md                 ← product positioning (to draft)
 ├── ECOSYSTEM.md              ← community + commercial (to draft)
-└── ROADMAP.md                ← V1, V1.x, V2, research (to draft)
+└── ROADMAP.md                ← V1, V1.x, V2, research (existing)
 ```
 
 ### 63.9 Document responsibilities
 
-| Document | Layer | Audience | Change rate |
+|| Document | Layer | Audience | Change rate ||
 |----------|-------|----------|-------------|
-| `PROTOCOL.md` | 1 | Protocol implementers | Slow |
-| `OBJECTS.md` | 1 | Protocol implementers | Slow |
-| `SECURITY.md` | 2 | Implementers, reviewers | Moderate |
-| `IMPLEMENTATION.md` | 2 | Builders | Moderate |
-| `CONNECTIVITY.md` | 3 | Connectivity engine builders | Moderate |
-| `VERSIONING.md` | cross | All | Slow |
-| `TEST-VECTORS/` | 1 | Implementers, testers | Additive |
-| `VISION.md` | 4 | Stakeholders, adopters | Slow |
-| `ECOSYSTEM.md` | 4 | Operators, vendors | Slow |
-| `ROADMAP.md` | 4 | Everyone | Moderate |
+|| `PROTOCOL.md` | 1 | Protocol implementers | Slow ||
+|| `OBJECTS.md` | 1 | Protocol implementers | Slow ||
+|| `design/THREAT-MODEL.md` | 2 | Implementers, reviewers | Moderate ||
+|| `design/DECISIONS.md` | 2 | Builders | Moderate ||
+|| `operations/CONNECTIVITY.md` | 3 | Connectivity engine builders | Moderate ||
+|| `VERSIONING.md` | cross | All | Slow ||
+|| `TEST-VECTORS/` | 1 | Implementers, testers | Additive ||
+|| `VISION.md` | 4 | Stakeholders, adopters | Slow ||
+|| `ECOSYSTEM.md` | 4 | Operators, vendors | Slow ||
+|| `ROADMAP.md` | 4 | Everyone | Moderate ||
 
 ---
 
@@ -2813,7 +2838,7 @@ These concepts are preserved as architectural abstractions. They are **not** def
 
 ### 65.4 Keep as implementation/security guidance
 
-These belong in `SECURITY.md` and `IMPLEMENTATION.md`, not in the protocol:
+These belong in `design/THREAT-MODEL.md` and `design/DECISIONS.md`, not in the protocol:
 
 - Resource limits on externally supplied objects
 - Anti-amplification rules

@@ -8,6 +8,7 @@ Design rationale, decisions, threat model, and lineage for Grid Network.
 - `LINEAGE.md` — What Grid Network borrows from prior art (DNS, WireGuard, BitTorrent, Bitcoin, Tailscale, Headscale, Matrix, SSH, IPFS, Kerberos), what it does differently, and why the composition produces properties none of them has alone.
 - `DECISIONS.md` — Decision log: significant design choices, their alternatives, and why they were made. Includes scope refinements, license choice (GPL v3), and failure mode treatments.
 - `THREAT-MODEL.md` — Security properties and non-properties: adversary model, blast radius, failure semantics (F1–F6), security principles, compromise procedures, attack scenarios, implementation requirements, and parser hardening.
+- `KNOWN-LIMITATIONS.md` — Design limitations that are inherent to the architecture and cannot be fixed by adding mechanisms. Each limitation is named, explained, and accompanied by its mitigation and boundary.
 
 ## Reading Order
 

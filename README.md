@@ -4,7 +4,7 @@ This specification was developed with AI assistance.
 
 Grid Network is a cryptographic identity, authorization, and reachability protocol for portable, vendor-neutral device connectivity.
 
-Every self-hosted application eventually needs remote access. Today that access either depends on a vendor (commercial Grid Network VPNs), requires an expert (self-hosted VPNs), or exposes the user to risk (port forwarding). The structural reason is that coordination has always required somebody to be the authority. Authorities cost money to operate, so somebody has to pay.
+Every self-hosted application eventually needs remote access. Today that access either depends on a vendor (commercial mesh VPNs), requires an expert (self-hosted VPNs), or exposes the user to risk (port forwarding). The structural reason is that coordination has always required somebody to be the authority. Authorities cost money to operate, so somebody has to pay.
 
 Grid Network is the first design that solves coordination without introducing an authority. Identity is a keypair, not an account. Authorization is local, not remote. Discovery is signed, not centralized. Infrastructure is replaceable, not mandatory.
 
@@ -21,7 +21,7 @@ Every self-hosted service, every personal server, every home automation system, 
 This forces every project into one of three bad choices:
 
 1. **Expose to the internet** — Open a port, hope nothing scans you. Firmware vulnerabilities, default credentials, Shodan exposure.
-2. **Use a proprietary tunnel/Grid Network VPN** — Tailscale, Cloudflare Tunnel, ZeroTier, ngrok. The company owns your device graph, access policies, identity. If the vendor disappears, your network loses its definition of who is allowed to talk to whom.
+2. **Use a proprietary tunnel/mesh VPN** — Tailscale, Cloudflare Tunnel, ZeroTier, ngrok. The company owns your device graph, access policies, identity. If the vendor disappears, your network loses its definition of who is allowed to talk to whom.
 3. **Build it yourself** — Run your own VPN, manage certificates, deal with dynamic DNS, CGNAT, NAT traversal, relay infrastructure, revocation, offline state. Works, but requires sysadmin expertise most people don't have.
 
 ---
