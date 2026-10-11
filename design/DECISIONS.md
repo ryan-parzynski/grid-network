@@ -1,304 +1,40 @@
-# Design Decisions
-
-Significant design choices, their alternatives, and rationale.
-
+---
+title: "Grid Network — Open Design Decisions"
+status: All decisions PROPOSED. None ACCEPTED as of 2026-10-11.
+version: 2026-10-11
 ---
 
-## 1. Scope Refinements
-
-### 1.1 Removed: Global DHT for Coordinator Discovery
-**Decision:** Do not include a global DHT for coordinator discovery in V1.
-**Alternatives considered:** Kademlia-based DHT, Mainline DHT, custom DHT.
-**Rationale:** DHTs introduce complexity, Sybil vulnerability, and operational burden. V1 relies on signed coordinator manifests with explicit federation. DHT can be added as a V2 extension without changing the core object model.
-
-### 1.2 Removed: Mandatory Homeserver/Coordinator Model
-**Decision:** No single coordinator is required. Coordinators are replaceable infrastructure.
-**Alternatives considered:** Matrix-style homeserver model, mandatory coordinator per identity.
-**Rationale:** Single coordinator creates availability dependency and concentration of power. Replaceable coordinators enable graceful degradation.
-
-### 1.3 Removed: XOR Obfuscation for Reachability Records
-**Decision:** Use authenticated encryption (COSE/HPKE) instead of XOR with shared key.
-**Alternatives considered:** XOR with QR-shared key, plaintext records.
-**Rationale:** XOR provides no meaningful confidentiality (key shared with all QR recipients), cannot provide independent revocation, and is not standard cryptographic practice.
-
-### 1.4 Removed: Unrestricted Global Gossip
-**Decision:** Bounded anti-entropy only. No recursive uncontrolled fan-out.
-**Alternatives considered:** Full gossip protocol, epidemic broadcast.
-**Rationale:** Unrestricted gossip scales poorly and creates unbounded resource consumption. Bounded replication with explicit quotas achieves resilience without resource exhaustion.
-
-### 1.5 Narrowed: Identity Continuity to V1
-**Decision:** IdentityContinuity requires dual signatures from both roots.
-**Alternatives considered:** Single-root rotation, threshold-based rotation, social recovery only.
-**Rationale:** Dual signatures provide cryptographic proof of both parties' consent. Threshold and social recovery deferred to V2.
-
----
-
-## 2. License Choice: GPL v3
-
-**Decision:** Use GPL v3 (not v2, not AGPL, not Apache/MIT).
-**Rationale:**
-- Patent clarity: GPL v3 makes patent grant explicit (critical for cryptographic protocols).
-- Anti-tivoization: Prevents hardware lockdown of modified software (important for decentralized identity).
-One core rule: if code from this project is used, modifications must be shared.
-- Not AGPL: Complexity of "running a service" definition, Linus's principle (simple licenses are clearer), pragmatic (spec implementations not covered anyway).
-- Not Apache: "Anyone can do anything" vs GPL "community benefits from improvements."
-
----
-
-## 3. Failure Mode Treatments (from FAILURE_MODES.md analysis)
-
-### 3.1 Revocation Effect on Active Sessions
-**Decision:** Revocation does NOT terminate active sessions immediately. Sessions continue until next authorization check.
-**Rationale:** Immediate termination requires in-band signaling that adds complexity and state. Leases already bound access to short windows. Revocation prevents future leases.
-**Documented in:** PROTOCOL.md authorization semantics.
-
-### 3.2 Identity Root Compromise — No In-Band Recovery
-**Decision:** V1 has no in-band recovery for Identity Root compromise.
-**Rationale:** Any in-band recovery mechanism would be an authority the protocol cannot trust. Recovery is out-of-band through trusted channels.
-**Documented in:** SECURITY.md §5, THREAT-MODEL.md.
-
-### 3.3 Published_At Timestamp on Reachability Records
-**Decision:** Reachability records carry a `published_at` timestamp (not just expiry).
-**Rationale:** Enables gossip/federation to order records correctly. Required for V2 federation.
-**Documented in:** PROTOCOL.md reachability record schema, OBJECTS.md.
-
-### 3.4 Explicit IdentityContinuity Bootstrap Rules
-**Decision:** Verifiers MAY bootstrap trust from any IdentityContinuity object whose `previous_root` is already trusted, without full chain download.
-**Rationale:** Enables history compression. New verifiers don't need full identity chain.
-**Documented in:** PROTOCOL.md identity continuity section.
-
----
-
-## 4. Pairing Model Decisions
-
-### 4.1 Three-Phase Pairing (Human Coord → Auth → Tunnel)
-**Decision:** Decouple human coordination window (5-10 min) from tunnel establishment (open-ended).
-**Rationale:** Prevents slow NAT traversal from breaking pairing. Code consumed in Phase 2; tunnel retries in Phase 3.
-**Source:** PAKE_DISCUSSION.md, FAILURE_MODES.md §1.
-
-### 4.2 Server-Side Confirmation (Allow/Deny Prompt)
-**Decision:** Receiving side displays confirmation prompt with peer identity label.
-**Rationale:** Human verification step complements PAKE. Prevents silent pairing by attacker who observed code.
-**Source:** PAKE_DISCUSSION.md, FAILURE_MODES.md §1.3.
-
-### 4.3 QR Code Contains Ephemeral Secret Only
-**Decision:** QR code contains temporary pairing secret, not long-lived credential.
-**Rationale:** Prevents QR code reuse, photography, logging. Secret consumed on first successful pairing.
-**Source:** PAKE_DISCUSSION.md, FAILURE_MODES.md §1.4.
-
----
-
-## 5. Relay Architecture Decisions
-
-### 5.1 Relay Forwards Encrypted Traffic Only
-**Decision:** Relay never terminates end-to-end encryption. Sees only ciphertext.
-**Rationale:** Keeps relay untrusted. Malicious relay can drop/delay but not read/modify content.
-**Source:** RELAY_DISCUSSION.md, RELAY_OPTIMIZATION.md, THREAT-MODEL.md.
-
-### 5.2 Capability Advertisement, Not Hardware Classification
-**Decision:** Relays advertise capabilities (bandwidth, sessions, latency), not hardware type.
-**Rationale:** Hardware-independent protocol. Raspberry Pi and bare-metal server implement same protocol.
-**Source:** RELAY_OPTIMIZATION.md, ROUTER_CONTRIBUTION.md.
-
-### 5.3 Direct-First Connectivity Preference
-**Decision:** Preference order: LAN → Direct IPv6 → Direct IPv4 → NAT traversal → Relay.
-**Rationale:** Relay is fallback, not default. Minimizes relay bandwidth costs.
-**Source:** CONNECTIVITY.md, COMMERCIAL.md.
-
----
-
-## 6. Commercial Model Decisions
-
-### 6.1 Commercial Layer Sells Guarantees, Not Access
-**Decision:** Free tier always works (best-effort). Paid tier gets priority/predictability.
-**Rationale:** Free users are the network's foundation (reachability publication, P2P connections). Commercial layer expands network rather than partitioning it.
-**Source:** COMMERCIAL.md, ../commercial/MODEL.md.
-
-### 6.2 Credit System: Contribution Earns Priority
-**Decision:** Users running relays earn credits for capacity contributed. Credits spendable on priority.
-**Rationale:** Creates contribution economy. Family pool model for shared resources. Operator-agnostic credits via exchange rates.
-**Source:** COMMERCIAL.md, RELAY_ECONOMICS.md.
-
-### 6.3 Geographic Scarcity Multiplier
-**Decision:** Relays in underserved regions earn more credits per byte.
-**Rationale:** Encourages infrastructure where it's most needed. Market incentive for geographic diversity.
-**Source:** COMMERCIAL.md, RELAY_ECONOMICS.md.
-
----
-
-## 7. Naming Decisions
-
-**Decision:** Final name is Grid Network. Domain separators use `grid/`. URIs use `grid://`.
-The name "Grid Network" was chosen because "Mesh" collides with existing libraries and "NotDNS" is defined by negation.
-**Source:** Project history in README.md.
-
----
-
-
-
-## 8. Kernel vs. Extension Boundaries
-
-The Grid Network architecture separates a stable protocol kernel from optional extensions. The kernel provides stable primitives; extensions compose those primitives without modifying the kernel.
-
-### 8.1 Kernel vs. Extension Boundary
-
-The kernel provides stable primitives. Extensions compose those primitives.
-
-| Extension | Kernel Compatibility | Implementation Difficulty |
-|-----------|---------------------|---------------------------|
-| Relay capability advertisement | Excellent | Low–medium |
-| Dynamic relay/path selection | Excellent | Medium |
-| Commercial relay services | Excellent | Low–medium |
-| Enterprise groups/roles | Excellent | Medium |
-| SSO / SCIM integration | Excellent | Medium |
-| Device posture | Excellent | Medium |
-| Audit/SIEM | Excellent | Medium |
-| JIT / step-up authorization | Excellent | Medium |
-| PAM gateways | Excellent | Medium–high |
-| Workload identities | Excellent | Medium |
-| Multi-hop relay | Good | Medium–high |
-| Onion anonymity | Good, but substantially harder | High |
-| Strong traffic-analysis resistance | Possible | Very high |
-
-The distinction is important: enterprise functionality is mostly policy layered over the kernel. Anonymity requires new cryptographic/network machinery.
-
-
-### Kernel/Extension Architecture
-
-The architecture separates layers as follows:
-
-```
-┌─────────────────────────────────────────────┐
-│ Applications                                │
-├─────────────────────────────────────────────┤
-│ Enterprise / policy / privacy extensions    │
-│                                             │
-│ Groups • SSO • posture • SIEM • JIT • PAM   │
-│ Onion routing • privacy policies            │
-├─────────────────────────────────────────────┤
-│         GRID NETWORK KERNEL                 │
-│                                             │
-│ Identity                                    │
-│ Relationships                               │
-│ Authorization                               │
-│ Grants / Leases                             │
-│ Revocation / Freshness                      │
-│ Service identity                            │
-│ Reachability                                │
-│ Rendezvous                                  │
-│ Relay                                       │
-│ Transport                                   │
-├─────────────────────────────────────────────┤
-│ Existing Internet                           │
-└─────────────────────────────────────────────┘
-```
-
-The kernel provides stable primitives. Extensions compose those primitives.
-### 8.2 Enterprise Functionality as Policy Layers
-
-Enterprise functionality is mostly policy layered over the kernel. The existing model already has the right primitives:
-
-Identity
-   ↓
-Relationship
-   ↓
-Authorization
-   ↓
-Grant
-   ↓
-Lease
-   ↓
-Connection
-
-Enterprise systems can add statements around those primitives.
-
-For example:
-
-Organization
-    ↓
-Membership
-    ↓
-Group / Role
-    ↓
-Policy
-    ↓
-Authorization
-    ↓
-Existing Grant / Lease
-
-
-### DevicePostureAssertion Primitive
-
-A DevicePostureAssertion is a signed object that conveys device compliance state to the authorization layer.
-
-Structure:
-```
-DevicePostureAssertion {
-    device
-    issuer
-    assessment
-    issued_at
-    expires_at
-    signature
-}
-```
-
-The kernel does not validate device posture; it validates the signature and freshness of the assertion. Policy above the kernel evaluates the assessment field.
-
-This primitive enables enterprise posture checks (CrowdStrike, Intune, Jamf, or any MDM/EDR) without extending the kernel.
-A future enterprise layer could simply say:
-
-Alice is a member of Engineering.
-
-Engineering may request capability X.
-
-Alice’s device satisfies posture requirement Y.
-
-This access requires approval from Z.
-
-The resulting authorization still ultimately becomes the same kind of authorization the kernel already understands.
-
-### 8.3 Implementation Difficulty Assessments
-
-Future work can be classified into three buckets:
-
-**Mostly straightforward extensions** (approachable once the kernel is stable):
-- relay capabilities
-- path requirements
-- load-aware relay selection
-- organizations
-- groups
-- roles
-- enterprise policy
-- SSO/SCIM adapters
-- device posture assertions
-- audit events
-- workload identities
-- service classifications
-- managed relay infrastructure
-
-**Significant but architecturally clean** (require more engineering but don't threaten the kernel):
-- JIT authorization
-- delegated administration
-- break-glass access
-- PAM gateways
-- multi-organization relationships
-- sophisticated policy engines
-- high-availability relay networks
-- multipath connectivity
-
-**Cryptographically/networking intensive** (deserve their own serious protocols/specifications):
-- Tor-like anonymity
-- strong traffic-analysis resistance
-- metadata protection
-- anonymous credentials
-- private discovery
-- mix networks
-- sophisticated anti-Sybil mechanisms
-
-The hard part is the foundation. Getting canonical serialization, signatures, sequence spaces, chain semantics, identity continuity, authority boundaries, relationship semantics, revocation, freshness, leases, and deterministic verification exactly right is more foundational than adding an enterprise dashboard later.
-
-Once that foundation is stable, an enterprise implementation doesn’t have to reinvent the protocol. The enterprise layer presents the organization policy, the signed device posture, the role, and the authorization decision. An anonymity implementation presents a different transport path that uses several Grid Network relays. That architecture ensures hard things later become new layers, not excuses to break the kernel.
-
-
-*End of Design Decisions*
+# Grid Network — Open Design Decisions
+
+Twenty-six decisions (D-01..D-26) remain open. None is ACCEPTED. To accept: change status to ACCEPTED in the corresponding `design/decisions/DR-00xx-*.md`; update `spec/PROTOCOL.md` / `spec/OBJECTS.md` (remove PENDING DECISION callout / promote section); update `spec/CHANGELOG.md`; merge in one PR.
+
+| D-xx | Title | Severity | Blocks | Linked finding | Status | Rec. summary | Link |
+|---|---|---|---|---|---|---|---|
+| D-01 | Stream identity model | High | V1 | C5 | PROPOSED | Option A: single identity stream per root | [DR-0001](decisions/DR-0001-stream-identity.md) |
+| D-02 | Chain base derivation | High | V1 | C4 | PROPOSED | Derive from previous_hash + root + sequence | [DR-0002](decisions/DR-0002-chain-base.md) |
+| D-03 | Verifier outcomes & classification | High | V1 | C3 | PROPOSED | Four-outcome proposal (NOT in spec); v0.6.2 3-class kept | [DR-0003](decisions/DR-0003-verifier-outcomes.md) |
+| D-04 | KeyRevocation history pinning | High | V1 | C1/C4 | PROPOSED | Pin to sequence + previous_hash; add fields | [DR-0004](decisions/DR-0004-revocation-pinning.md) |
+| D-05 | Identity continuity termination | High | V1 | C5 | PROPOSED | Termination requires signed record + root | [DR-0005](decisions/DR-0005-identity-continuity.md) |
+| D-06 | PAKE algorithm and transcript | High | V1 | C2/C6 | PROPOSED | SPAKE2 vs CPace; define contract independent | [DR-0006](decisions/DR-0006-pake.md) |
+| D-07 | Relationship privacy | High | V1 | H1/M1 | PROPOSED | Per-relationship stream (Option A) | [DR-0007](decisions/DR-0007-relationship-privacy.md) |
+| D-08 | Freshness attestation | Med | V1.1 | H5 | PROPOSED | Timestamp / nonce proof | [DR-0008](decisions/DR-0008-freshness.md) |
+| D-09 | Identity Root custody | High | V1 | H2/H3 | PROPOSED | Root offline/hardware; Relationship Key option | [DR-0009](decisions/DR-0009-root-custody.md) |
+| D-10 | Local API caller authentication | Med | V1.1 | H4/H7 | PROPOSED | Caller identity + capability proof | [DR-0010](decisions/DR-0010-local-api-security.md) |
+| D-11 | Resource limits | High | V1 | — | PROPOSED | Per-peer + per-object bounded limits (§13.6) | [DR-0011](decisions/DR-0011-resource-limits.md) |
+| D-12 | Monotonic clock reset on reboot | Med | V1.1 | — | PROPOSED | Clock reset handling; freshness impact | [DR-0012](decisions/DR-0012-clock-reboot.md) |
+| D-13 | Ed25519 verification strictness | High | V1 | — | PROPOSED | Strict encoding; no lenient parsing; domain sep | [DR-0013](decisions/DR-0013-ed25519-and-references.md) |
+| D-14 | Fork resolution and dispute handling | High | EXT | — | PROPOSED | Resolution order; dispute evidence | [DR-0014](decisions/DR-0014-fork-resolution.md) |
+| D-15 | Transmissible fork-proof object | Med | EXT | — | PROPOSED | Object form; reference rules | [DR-0015](decisions/DR-0015-fork-proof-object.md) |
+| D-16 | Same-sequence key revocations | Med | V1.1 | — | PROPOSED | Ordering / dedup rules | [DR-0016](decisions/DR-0016-same-sequence-revocations.md) |
+| D-17 | previous_hash redundancy | Med | V1.1 | — | PROPOSED | Redundant chain link justification | [DR-0017](decisions/DR-0017-previous-hash-redundancy.md) |
+| D-18 | Object identity and reference stability | Med | V1.1 | H6 | PROPOSED | Reference form; stable IDs | [DR-0018](decisions/DR-0018-object-identity.md) |
+| D-19 | History checkpoints | Med | EXT | — | PROPOSED | Checkpoint format; verification | [DR-0019](decisions/DR-0019-history-checkpoints.md) |
+| D-20 | Multi-store publication | Low | EXT | — | PROPOSED | Replication / conflict | [DR-0020](decisions/DR-0020-multi-store-publication.md) |
+| D-21 | Transport binding | Low | EXT | M4 | PROPOSED | HTTPS / wire mapping | [DR-0021](decisions/DR-0021-transport-binding.md) |
+| D-22 | V1 minimal profile | High | V1 | L1 | PROPOSED | Minimal profile; excluded features | [DR-0022](decisions/DR-0022-v1-minimal-profile.md) |
+| D-23 | Test vectors and conformance | High | V1 | — | PROPOSED | Vector format; conformance scenarios (§60) | [DR-0023](decisions/DR-0023-test-vectors.md) |
+| D-24 | Relay economy and extension scope | Low | EXT | — | PROPOSED | Relay cost; scope boundaries | [DR-0024](decisions/DR-0024-relay-economy.md) |
+| D-25 | Licensing | Low | — | L3 | PROPOSED | License selection; original content | [DR-0025](decisions/DR-0025-licensing.md) |
+| D-26 | Implementation language | Low | — | — | PROPOSED | Language / runtime choice | [DR-0026](decisions/DR-0026-implementation-language.md) |
+
+All links resolve to `design/decisions/DR-00xx-*.md`; all statuses = PROPOSED.
