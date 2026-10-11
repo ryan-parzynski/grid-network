@@ -10,6 +10,18 @@ linked_finding: H6
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Object identity and reference stability"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-18
+severity: Med
+blocks: V1.1
+linked_finding: H6
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-18 — Object identity and reference stability
 
@@ -25,34 +37,60 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-18: OBJECT IDENTITY AND REFERENCE STABILITY
+[LOW PRIORITY, DEPENDS ON D-13]
 
-Context (H6): ref stability (§18,§41–§44). [PROPOSED]. Rec (PROPOSED): stable reference = H(object_content + domain_sep); reference form lowercase hex with domain tag. Consequences: spec/PROTOCOL.md §41–§44; spec/OBJECTS.md §6 (placeholder NEEDS AUTHOR INPUT); §13.2 (PENDING D-18).
+Problem:
+§13.2 defines object_id = SHA256(canonical_signed_object_bytes), hashing the
+exact bytes including the signature. But Ed25519 signatures are deterministic
+under RFC 8032, so the same private key and input produce the same signature;
+however, D-13 (Ed25519 strictness) raises a concern: is it possible for the
+same payload to have two different valid signatures under the same key due to
+ambiguity in the verification process? If so, object_id is non-unique. H7
+flags this.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Use object_commitment for references; object_id is storage-only
+[PROPOSED in §13.2]
+
+  object_commitment = SHA256(...unsigned_payload) identifies the content.
+  object_id = SHA256(signed_bytes) remains for deduplication in storage, but
+  protocol-level references (revocations, API calls, cross-references) use
+  object_commitment.
+
+  Pros:
+    - object_commitment is stable per unsigned_payload (content-addressed).
+    - object_id remains usable for storage deduplication.
+    - No ambiguity: one content = one commitment.
+
+  Cons:
+    - Two identifier types; implementers must not confuse them.
+    - API must change (grid.revoke takes object_commitment, not object_id).
+
+Option B: Remove object_id entirely; use only object_commitment
+
+  object_id is not defined or used in the protocol.
+
+  Pros:
+    - One identifier type: simpler.
+    - Definitely stable (content-addressed).
+
+  Cons:
+    - Storage deduplication is less explicit (implementer responsibility).
+
+Recommendation:
+Accept Option A (object_commitment for references; object_id storage-only).
+Update the local API (D-10) and all cross-reference examples to use
+object_commitment.
+
+Consequences:
+  - §13.2: clarify object_commitment as the protocol identifier.
+  - §17: grid.revoke(object_commitment) instead of grid.revoke(object_id).
+  - Test vectors: object_commitment values and verification.
+  - D-13 (strictness) should prove that Ed25519 signatures are deterministic
+    even under strict rules (they are, per RFC 8032).
 
 
 
-## Recommendation (PROPOSED — NOT DECIDED)
-
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
-
-## Consequences
-
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
-
-## Security review answers (§19)
-
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
-
-## Cross-references (must resolve)
-
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-18 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
-
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================
+PART V — OPEN DECISIONS D-19 THROUGH D-26
+================================================================================

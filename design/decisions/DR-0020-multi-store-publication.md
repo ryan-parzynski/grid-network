@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Multi-store publication"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-20
+severity: Low
+blocks: EXT
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-20 — Multi-store publication
 
@@ -25,34 +37,55 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-20: MULTI-STORE PUBLICATION AND RENDEZVOUS REPLICATION
+[HIGH PRIORITY, AVAILABILITY IMPACT]
 
-Context: replication / publication to multiple stores (§33,§39). [PROPOSED]. Rec (PROPOSED): publication = signed record to rendezvous + optional replica; conflict by sequence. Consequences: spec/PROTOCOL.md §33,§39.
+Problem:
+v0.6.2 assumes a principal publishes to one rendezvous. But if that rendezvous
+goes down, the peer becomes unreachable. Should principals publish to multiple
+rendezvous for redundancy?
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Multi-store publication in V1
 
+  Principals are configured with a list of rendezvous servers (e.g., [A, B,
+  C]). Every identity/reachability/manifest update is published to all three
+  simultaneously. Clients are configured with the same list. On lookup,
+  clients try servers in order, fall back, and merge results from multiple
+  sources.
 
+  Pros:
+    - Redundancy: one server down does not affect availability.
+    - Already compatible with the design (rendezvous is untrusted).
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Cons:
+    - Coordination: must keep all three in sync.
+    - Clients must handle reconciliation (which reachability record is newer?).
+    - More complex wire protocol (sync, 3-way merge).
+    - Configuration must be explicit (users must list multiple stores).
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+Option B: Single primary rendezvous in V1; replication in V1.1
 
-## Consequences
+  V1 assumes one configured rendezvous. V1.1 adds multi-store with federation
+  (rendezvous replicate to each other).
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Pros:
+    - Simpler V1: one rendezvous per principal.
+    - Federation design deferred until rendezvous behavior is stable.
 
-## Security review answers (§19)
+  Cons:
+    - No redundancy in V1.
+    - Later migration to multi-store may require schema changes.
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+Recommendation:
+Accept Option B (single rendezvous in V1, multi-store deferred to V1.1 / D-20
+decision). V1 focuses on proving the kernel. Rendezvous redundancy is a
+deployment choice, not a protocol requirement.
 
-## Cross-references (must resolve)
+Consequences:
+  - §11.1 and wire protocol (D-20 decision in D-21): describe single
+    rendezvous behavior.
+  - Operator docs: note that multiple rendezvous are not supported in V1 (or
+    require external caching/CDN).
+  - V1.1 design: federation, conflict resolution, replica consistency.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-20 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
-
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

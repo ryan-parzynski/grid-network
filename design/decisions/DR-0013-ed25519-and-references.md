@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Ed25519 verification strictness"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-13
+severity: High
+blocks: V1
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-13 — Ed25519 verification strictness
 
@@ -25,38 +37,65 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-13: ED25519 VERIFICATION STRICTNESS AND KEY VALIDATION
+[HIGH PRIORITY, AFFECTS INTEROPERABILITY]
 
-Context: §5 sig semantics; Ed25519 strict encoding; domain separators §58; refs §18/D-18 affect verification input. [PROPOSED].
+Problem:
+RFC 8032 Ed25519 implementations differ on small-order keys, non-canonical
+signature encodings, and cofactor handling. Without specifying strictness,
+verifiers will diverge: one implementation accepts a signature; another
+rejects it. This is the top interoperability risk after the stream model
+(H7).
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Strict RFC 8032 verification [PROPOSED in §13.2]
 
-- **A:** Strict (no lenient encoding; exact 32B pubkey; domain strict). Pros: interop; sec. Cons: precise impl.
-- **B:** Lenient. Pros: forgiving. Cons: sec risk.
+  1. Pure Ed25519 (no Ed25519ph or Ed25519ctx variants).
+  2. Reject signatures where S >= L (group order 2^252 + 27742317777372353535).
+  3. Reject public keys and R values with non-canonical encodings.
+  4. Reject public keys of small order (including identity/neutral point).
+     Small order = any point P where 8P = identity (cofactor = 8).
+  5. Verify using the cofactorless equation [S]B = R + [k]A.
+  6. Publish edge-case vectors: small-order keys, non-canonical S/R/A, test
+     against every implementation.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Pros:
+    - Interoperable: all verifiers agree.
+    - Secure: rejects all known Ed25519 attacks.
+    - Standard: based on RFC 8032.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Cons:
+    - Some libraries (libsodium, NaCl) use cofactored verification by default
+      and don't reject small-order keys. Implementations must layer strictness
+      on top.
+    - Slightly slower (cofactorless verification, small-order check).
 
-## Consequences
+Option B: Permissive (library default)
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+  Accept whatever the cryptographic library does. No special validation.
 
-## Security review answers (§19 rule)
+  Pros:
+    - Simplest: use library defaults.
+    - Faster (no extra checks).
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Cons:
+    - Verifiers diverge on edge cases.
+    - Small-order keys could be used to construct signatures that verify
+      under some implementations but not others.
+    - Interoperability is not guaranteed.
 
-## Cross-references (must resolve)
+Recommendation:
+Accept Option A (strict RFC 8032). Implement the strictness layer explicitly.
+Publish edge-case vectors and require every implementation to pass them.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `—`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-13): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Consequences:
+  - §13.2: finalize strictness rules (as proposed).
+  - Crypto reference: write a reference verifier showing the exact checks
+    (pseudocode or Rust code).
+  - Test vectors: at least one vector for each edge case (small-order key,
+    non-canonical S, non-canonical R/A, valid signature, invalid S ≥ L).
+  - Implementer guide: library-specific notes (libsodium: use
+    crypto_sign_open_detached with cofactorless flag; etc.).
+  - Conformance test: every verifier must pass the edge-case vectors or be
+    marked non-conformant.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+================================================================================

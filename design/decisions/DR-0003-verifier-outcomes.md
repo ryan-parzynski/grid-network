@@ -10,6 +10,18 @@ linked_finding: C3
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Verifier outcomes and classification"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-03
+severity: High
+blocks: V1
+linked_finding: C3
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-03 — Verifier outcomes and classification
 
@@ -25,38 +37,71 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-03: VERIFICATION OUTCOMES AND CLASSIFICATION
+[BLOCKING, CRITICAL PRIORITY]
 
-Context (C3): §47 'deterministically' ambiguous; four-outcome proposal (ACCEPTED/REJECTED-INVALID/REJECTED-REVOKED/REJECTED-EXPIRED). [PROPOSED] — NOT in spec. spec/PROTOCOL.md §47 stays v0.6.2 (3-class); PENDING D-03 callout added. spec/OBJECTS.md §9 gets PENDING D-03.
+Problem:
+v0.6.2 §14 has two outcomes (ACCEPT, REJECT) but the procedure describes
+cases that need more fine-grained handling: gaps (sequence N+5 arrives before
+N+1), forks (conflicting sequence N with same predecessor), and overlapping
+rejection criteria (e.g., INVALID_SEQUENCE and INVALID_PREVIOUS_HASH both
+apply to the same object). C3 identifies the problem; §14 proposed replacement
+has four outcomes.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Four outcomes, one check per class [PROPOSED in §14]
 
-- **A:** Four-outcome (proposed). Pros: explicit. Cons: breaks v0.6.2; needs spec+vector.
-- **B:** Keep 3-class (v0.6.2). Pros: unchanged. Cons: revocation/expiry both REJECTED.
+  ACCEPT           Valid object extends accepted head.
+  REJECT(class)    One of 11 reject classes, exactly one per object.
+  DEFER(GAP)       Authentic but predecessor not held; store deferred,
+                   enter SYNCING.
+  FORK_EVIDENCE    Authentic, correctly chained to accepted predecessor,
+                   but conflicts with accepted object at same sequence.
+                   Record evidence; stream enters FORKED.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Verification steps: parse → identify schema → validate envelope/schema →
+  verify signature → check signer → place in stream → validate chain/temporal
+  → check revocation → semantic checks.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  One check per step; one step per rejection class.
 
-## Consequences
+  Pros:
+    - Clear semantics for each outcome; no ambiguity on what to do next.
+    - Forks are explicitly tracked and can be audited/resolved.
+    - Deferred objects are not authority; SYNCING is a clear state.
+    - Matches the "fail closed on gaps and forks" principle.
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+  Cons:
+    - Implementers must handle three deferred/fork cases; slightly more code.
+    - "Deferred" and "fork evidence" state must be persisted and bounded
+      (§13.6).
 
-## Security review answers (§19 rule)
+Option B: Two outcomes, implicit handling [v0.6.2 model]
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  ACCEPT / REJECT only. Gaps and forks are treated as REJECT with different
+  error messages, or as state-dependent logic outside the verifier.
 
-## Cross-references (must resolve)
+  Pros:
+    - Simpler API surface.
+    - Fewer state types.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `C3`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-03): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+  Cons:
+    - Implementers add ad-hoc gap/fork logic outside the core verifier.
+    - Verifiers diverge on how to handle missing predecessors (retry vs
+      fail).
+    - Fork handling is ambiguous: should a second valid sequence-N cause
+      rollback, or is it an error?
+    - Tested behavior is hard to specify without explicit outcomes.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+Recommendation:
+Accept Option A (four outcomes, one class per check). Implement the §14
+procedure as proposed. This is the single highest-value decision for
+unambiguous interoperable verification.
+
+Consequences:
+  - OBJECTS.md §5.3: becomes the §14 text verbatim.
+  - Test vectors: at least one vector per outcome; one per rejection class.
+  - Implementer docs: state-machine diagrams for SYNCING, FORKED, recovery.
+  - D-14 (StreamResolution) depends on this; forks become explicit.
+  - D-15 (fork-proof object) depends on this.
+
+================================================================================

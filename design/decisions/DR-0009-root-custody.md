@@ -10,6 +10,18 @@ linked_finding: H2/H3
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Identity Root custody"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-09
+severity: High
+blocks: V1
+linked_finding: H2/H3
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-09 — Identity Root custody
 
@@ -25,38 +37,88 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-09: IDENTITY ROOT CUSTODY AND RELATIONSHIP KEY DELEGATION
+[HIGH PRIORITY, IMPACTS DEPLOYMENT AND KEY MANAGEMENT]
 
-Context (H2/H3): v0.6.2 root signs all; Relationship Key delegation proposed; root offline/hardware. [OPEN D-09] [PROPOSED].
+Problem:
+v0.6.2 intends the Identity Root to be offline, yet requires it to sign every
+RelationshipAssertion and RelationshipTermination. In practice, users will
+keep the root online to enable routine pairing, contradicting the design goal
+(H3). A separate Relationship Key role could allow the root to stay offline.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Introduce Relationship Key, delegated by root [PROPOSED in §5.3]
 
-- **A:** Root offline/hardware; Relationship Key delegates (D-07). Pros: root protect; delegation. Cons: new role; mgmt.
-- **B:** Root online; no delegation. Pros: simple. Cons: exposure.
+  New role: Relationship Key, distinct from Identity Root.
+  Root signs a delegation: "this Relationship Key is authorized to make
+  assertions and terminations for this principal."
+  RelationshipAssertion and RelationshipTermination are signed by the
+  Relationship Key, not the root.
+  Root is offline or hardware-backed; Relationship Key is on the device.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Pros:
+    - Separates authority: root is not routine; Relationship Key handles
+      pairing.
+    - Enables offline-root operation.
+    - Smaller attack surface: Relationship Key compromise does not compromise
+      the root or the principal's other keys.
+    - Aligns with role separation principle (§5.3).
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Cons:
+    - One more key type to manage and delegate.
+    - Delegation object adds to the identity stream.
+    - Initial pairing requires the root to delegate the Relationship Key
+      (bootstrapping).
 
-## Consequences
+Option B: No Relationship Key; keep using Identity Root for assertions
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+  v0.6.2 behavior: root signs every assertion and termination.
 
-## Security review answers (§19 rule)
+  Pros:
+    - Simpler: one fewer key role.
+    - Existing logic.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Cons:
+    - Root must be online for routine pairing.
+    - Root compromise is immediately catastrophic (every relationship is
+      attacker-controlled).
+    - Does not achieve offline root goal.
+    - Verifier-derived relationship state depends on the root being responsive
+      for pairing; if the root is offline/slow, pairing is blocked.
 
-## Cross-references (must resolve)
+Option C: Relationship Key is optional; either root or delegated key can sign
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `H2/H3`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-09): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+  Relationship Key exists but is optional. Implementations can skip it if they
+  accept root online.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+  Pros:
+    - Flexible: simple deployments skip it, complex deployments use it.
+
+  Cons:
+    - Two verification paths: verifier must check both (root signature OR
+      delegated key signature). More complex; more testing.
+    - Implementations diverge: some require it, some don't. Interoperability
+      is unclear.
+    - Does not actually solve H3 unless the implementation chooses to use it.
+
+Recommendation:
+Accept Option A (Relationship Key, mandatory, delegated by root). Enables
+offline-root operation. Update §5.3 key-role table, §7 (RelationshipAssertion
+signing), and identity document schema to include a relationship_key_ids
+field.
+
+Consequences:
+  - OBJECTS.md: add relationship_key_ids to IdentityDocument; define
+    delegation semantics.
+  - §5.3: update key-role table; make Relationship Key V1.
+  - §7 and §9 (if needed): update signer eligibility rules.
+  - Pairing (D-06): must include delegating the Relationship Key after the
+    root bootstraps the device key.
+  - Test vectors: delegation, compromise of Relationship Key, root offline
+    scenarios.
+  - Operators: can now generate root offline, create device + relationship keys,
+    import device-specific keys to the device, and operate with root in a
+    vault.
+
+================================================================================
+PART V — OPEN DECISIONS D-10 THROUGH D-18
+================================================================================

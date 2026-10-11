@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Fork resolution and dispute handling"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-14
+severity: High
+blocks: EXT
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-14 — Fork resolution and dispute handling
 
@@ -25,34 +37,70 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-14: FORK RESOLUTION AND DISPUTE HANDLING
+[MEDIUM PRIORITY, DEPENDS ON D-03, EXTENDS TO V1.1]
 
-Context: §1–§3, §54 reconciliation; fork dispute needs ordered resolution + evidence. [PROPOSED]. Options: A=sequence+root arbitration; B=peer dispute record; C=auto-resolve by longest chain. Rec (PROPOSED): A with dispute evidence record. Consequences: spec/PROTOCOL.md §54,§55. Security: false fork prevented by root sig; absence=longest-chain default (safe).
+Problem:
+v0.6.2 includes a heavy StreamResolution mechanism for resolving forks at the
+stream level. It assumes a resolver is trusted, a conflict is recorded, and
+votes/timestamps select a winner. However, forks in authorization streams can
+already be resolved by the root using KeyRevocation with pinning (D-04). For
+identity streams, root compromise has no in-band recovery anyway. D-03
+(explicit fork evidence) changes the landscape: forks are now first-class
+verifier outcomes, not errors to be resolved.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Defer StreamResolution to extension (V1.1)
 
+  V1 fork policy: authorization-stream fork → root issues KeyRevocation
+  pinned to the last good chain hash (D-04 already handles this).
+  Identity-stream fork → principal is marked FORKED for that verifier; no
+  authority beyond the last common accepted point; out-of-band re-pairing.
 
+  StreamResolution, voting, resolver delegation, and dispute mechanics are
+  designed in design/EXTENSIONS.md for later versions.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Pros:
+    - Simplifies V1: no resolver machinery in the kernel.
+    - D-04 (KeyRevocation pinning) is the primary resolution mechanism.
+    - Fork evidence (§14, D-03) is sufficient for auditing.
+    - V1.1 can add StreamResolution if real deployments need it.
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+  Cons:
+    - Identity-stream forks require out-of-band coordination (inconvenient
+      for users).
+    - No automatic dispute resolution; users must notice and act.
 
-## Consequences
+Option B: Include StreamResolution in V1 [ORIGINAL v0.6.2]
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Implement the full mechanism: resolver eligibility, vote counting,
+  timestamp-based selection, rollback semantics.
 
-## Security review answers (§19)
+  Pros:
+    - Automated fork resolution (better UX).
+    - Can delegate to higher-level keys without involving the root.
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+  Cons:
+    - Adds 200+ lines of spec to the kernel.
+    - Introduces voting and availability dependence ("which resolver is
+      online?").
+    - Verifiers disagree if a resolver is unavailable or sends conflicting
+      evidence.
+    - Not proven necessary (KeyRevocation pinning solves authorization
+      streams; identity forks are rare in well-managed systems).
+    - Violates "fail closed on unresolved conflicts."
 
-## Cross-references (must resolve)
+Recommendation:
+Accept Option A (defer to V1.1). Focus V1 on proving the kernel works
+(identity, relationships, grants, leases, revocation, reachability). Add
+StreamResolution as a V1.1 extension if real deployments show a need.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-14 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
+Consequences:
+  - §16.1: moved to design/EXTENSIONS.md (marked EXTENSION in separator
+    registry).
+  - §14: fork evidence is an outcome; no automatic resolution machinery in V1.
+  - design/EXTENSIONS.md: StreamResolution will be specified there.
+  - Test vectors: fork evidence scenarios; out-of-band re-pairing recovery.
+  - D-14 simplifies the V1 spec significantly; focus shifts to D-06 and D-20
+    (pairing and wire protocol).
 
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

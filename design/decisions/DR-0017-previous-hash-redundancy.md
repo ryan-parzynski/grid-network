@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — previous_hash redundancy"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-17
+severity: Med
+blocks: V1.1
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-17 — previous_hash redundancy
 
@@ -25,34 +37,56 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-17: PREVIOUS_HASH REDUNDANCY AND CHAIN LINKAGE
+[LOW PRIORITY, CLEANUP]
 
-Context: previous_hash in chain provides redundancy / verifiability. [PROPOSED]. Rec (PROPOSED): keep; use for replay detection + verification (ties D-13 Ed25519 strict, D-18 refs at §13.2). Consequences: spec/OBJECTS.md §13.2 (PENDING D-13/D-17/D-18).
+Problem:
+v0.6.2 transmits both previous_hash and chain_hash in every object. §13.2
+defines previous_hash(N) = object_commitment(N-1) and chain_hash(N) =
+SHA256(...previous_chain_hash(N), object_commitment(N)). The verifier can
+compute previous_hash from committed state, so sending it is redundant and
+increases object size. Should it be removed?
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Remove previous_hash from the wire; derive it during verification
 
+  Objects omit previous_hash. The verifier computes the expected previous_hash
+  from its accepted head at sequence N-1 and compares it to the incoming
+  object's commitment. If they match, proceed; if not, CHAIN_MISMATCH.
 
+  Pros:
+    - Smaller objects (~64 bytes saved per object).
+    - Clearer semantics: chain_hash is the only linking value.
+    - Still deterministic: verifier computes the expected previous from
+      accepted state.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Cons:
+    - Implementers must remember to derive and check previous_hash.
+    - Streaming/progressive verification is slightly more complex (must have
+      accepted N-1 before verifying N).
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+Option B: Keep both on the wire [v0.6.2 behavior]
 
-## Consequences
+  No change. Objects carry both values.
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Pros:
+    - Explicit: every linkage is named.
+    - Easier for naive implementations to check both.
 
-## Security review answers (§19)
+  Cons:
+    - Redundant: one of the two is computable.
+    - Larger object size.
+    - More test vectors needed (both fields must match).
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+Recommendation:
+Accept Option A (remove previous_hash, derive it). Saves space and improves
+clarity. Update §13.2 and the verifier procedure (§14) to derive and check it.
 
-## Cross-references (must resolve)
+Consequences:
+  - OBJECTS.md: remove previous_hash field from all object schemas.
+  - §13.2: describe the derivation during verification.
+  - §14 step 9: modified to derive and check previous_hash.
+  - Test vectors: re-encode all objects without previous_hash; update
+    verification scenarios.
+  - Implementer guide: pseudocode for previous_hash derivation.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-17 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
-
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

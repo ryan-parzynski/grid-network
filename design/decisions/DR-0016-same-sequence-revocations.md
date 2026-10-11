@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Same-sequence key revocations"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-16
+severity: Med
+blocks: V1.1
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-16 — Same-sequence key revocations
 
@@ -25,34 +37,51 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-16: SAME-SEQUENCE KEY REVOCATIONS AND CONFLICTS
+[LOW PRIORITY, EDGE CASE]
 
-Context: multiple revocations at same sequence — ordering/dedup. [PROPOSED]. Rec (PROPOSED): ordered by signature timestamp; first valid wins; duplicates rejected. Consequences: spec/PROTOCOL.md §20.
+Problem:
+If two KeyRevocations are accepted for the same Authorization Key with the
+same effective_sequence but different effective_predecessor_chain_hash (D-04
+introduces the predecessor hash), the root's stream is internally
+inconsistent. Which revocation is correct? v0.6.2 does not address this.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: First revocation stands; second is fork evidence
 
+  The first accepted KeyRevocation for (key_id, effective_sequence) sets the
+  pinned predecessor hash. A second KeyRevocation with a different hash is
+  FORK_EVIDENCE.
 
+  Pros:
+    - Simple: deterministic rule.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Cons:
+    - Does not reveal which branch is legitimate (both could be valid
+      signatures).
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+Option B: Both revocations are recorded; operator must investigate
 
-## Consequences
+  Mark both as valid but conflicting. Raise an operator alert: "root stream
+  has conflicting revocations for key_id." Do not accept authority from either
+  branch.
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Pros:
+    - Explicit: operator is aware of the inconsistency.
 
-## Security review answers (§19)
+  Cons:
+    - No automatic resolution.
+    - User-facing: users see an alert for a root-stream issue.
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+Recommendation:
+Accept Option A (first revocation stands) unless operator experience testing
+(D-23) shows otherwise. The scenario is rare (requires root to issue
+conflicting revocations, i.e., root compromise or bug). If it happens,
+re-pairing and explicit root recovery are likely needed anyway.
 
-## Cross-references (must resolve)
+Consequences:
+  - §9 rule 6 (added by D-04): clarify that equal effective_sequence with
+    different predecessor hashes is FORK_EVIDENCE at the root stream level.
+  - Test vectors: competing revocations for the same key at the same
+    effective_sequence.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-16 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
-
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

@@ -10,6 +10,18 @@ linked_finding: C2/C6
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — PAKE algorithm and transcript"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-06
+severity: High
+blocks: V1
+linked_finding: C2/C6
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-06 — PAKE algorithm and transcript
 
@@ -25,39 +37,63 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-06: PAIRING ALGORITHM AND TRANSCRIPT CONTRACT
+[BLOCKING, CRITICAL PRIORITY]
 
-Context (C2/C6): §24–§29 pairing; SPAKE2/CPace unselected; contract independent of choice needed ([REVIEW-2026-10-11 C2/C6] [OPEN D-06]). Min contract: both root pubkeys (or Relationship Key D-09), both device IDs, session derivation label, transcript record.
+Problem:
+C6 and the spec identify SPAKE2 or CPace as candidates, but neither is fully
+specified. The protocol's security rests on the pairing transcript (§10);
+implementations must agree byte-for-byte. Without test vectors and an exact
+algorithm choice, interoperability cannot be claimed.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: SPAKE2 with specified transcript format [PROPOSED in §10]
 
-- **A:** SPAKE2. Pros: RFC, studied. Cons: specific group/encoding.
-- **B:** CPace. Pros: simpler. Cons: less literature.
-- **C:** Abstract/selectable (contract defined; impl chooses). Pros: flexibility. Cons: interop risk.
+  Algorithm: SPAKE2 (https://datatracker.ietf.org/doc/html/rfc9383).
+  Transcript binding: SHA-256 over a canonical CBOR array:
+    ["grid/pairing/v1", protocol_version, context_label, peer_id_A,
+     peer_id_B, identity_root_A, identity_root_B, ephemeral_msg_A,
+     ephemeral_msg_B, code_session_id]
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  All serialized in canonical CBOR per §13.1.
+  relationship_id derived from SHA-256(pake_transcript_hash), per M1.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Pros:
+    - RFC 9383 is stable and well-reviewed.
+    - Clear threat model (short code, PAKE security).
+    - Moderate complexity; multiple implementations exist.
 
-## Consequences
+  Cons:
+    - The RFC leaves transcript/context binding to the application; we must
+      specify it fully (done above, but adds work).
+    - Slightly slower than CPace for very long codes.
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+Option B: CPace (https://datatracker.ietf.org/doc/html/rfc9383 Appendix A)
 
-## Security review answers (§19 rule)
+  Algorithm: CPace.
+  Transcript: same CBOR structure as Option A.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Pros:
+    - More efficient for very long code strings.
+    - Equally secure.
 
-## Cross-references (must resolve)
+  Cons:
+    - Less mature than SPAKE2; fewer reference implementations.
+    - Security analysis is more recent; larger field for hidden bugs.
+    - RFC is an appendix; less standalone clarity.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `C2/C6`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-06): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Recommendation:
+Accept Option A (SPAKE2). Stability and maturity outweigh CPace's efficiency
+gain. Write the exact transcript binding in a PAKE specification document
+(not in the core protocol document; PAKE is a bounded, self-contained choice).
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+Consequences:
+  - New document: spec/PAIRING.md, specifying SPAKE2, transcript, code
+    lifetimes, retry limits, verification value (SAS) derivation, test vectors.
+  - Update §10 with a reference to PAIRING.md and the minimum output contract.
+  - Reference verifier: SPAKE2 library integration (libspake2 or eq.).
+  - Test vectors: successful pairings, failed codes, timeouts, SAS
+    verification.
+  - D-07 (relationship privacy) depends on pairing completing the
+    relationship_id derivation.
+
+================================================================================

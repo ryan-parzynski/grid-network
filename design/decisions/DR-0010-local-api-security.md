@@ -10,6 +10,18 @@ linked_finding: H4/H7
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Local API caller authentication"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-10
+severity: Med
+blocks: V1.1
+linked_finding: H4/H7
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-10 — Local API caller authentication
 
@@ -25,38 +37,90 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-10: LOCAL API CALLER AUTHENTICATION AND KEY CUSTODY
+[HIGH PRIORITY, IMPACTS EMBEDDED DEPLOYMENT AND MOBILE]
 
-Context (H4/H7): §47 local API; revocation+local ref; availability vs authority ambiguity. [OPEN D-10] [PROPOSED].
+Problem:
+v0.6.2 defines the local API (§17) but does not say which local processes may
+call it, how callers are authenticated, or where private keys are stored. The
+agent is called a "security boundary," but the boundary is not defined. This
+is critical on mobile and embedded systems where the agent is often inside the
+application process (H4).
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: OS-level caller identification + registered scopes [PROPOSED in §17]
 
-- **A:** Caller identity+capability proof. Pros: audit; auth. Cons: overhead.
-- **B:** No caller auth (local). Pros: simple. Cons: local escalation.
+  Transport: Unix domain socket (Linux/macOS), named pipe with ACL (Windows),
+  embedded API with signature checks (iOS/Android).
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Caller ID: OS-provided peer credentials (SO_PEERCRED / getpeereid /
+  named-pipe identity); mapped to a registered local client.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Scopes:
+    read ........ discover, resolve, authorize, status
+    connect .... connect (service linkage only; no key access)
+    admin ...... revoke, grant, pair
 
-## Consequences
+  Registration: each app is registered once with user approval; default
+  (integrated apps) is read + connect. admin requires interactive confirmation
+  or admin CLI.
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+  Key custody: private keys in OS keystore / TPM / Secure Enclave / StrongBox.
+  Identity Root never crosses the API; it is offline or hardware-backed.
 
-## Security review answers (§19 rule)
+  Pros:
+    - Clear boundaries: each app knows its authority.
+    - Fails closed: unknown callers are rejected.
+    - Mobile-friendly: platform native keystores.
+    - Audit-friendly: every admin call is logged.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Cons:
+    - Implementation is platform-specific (socket on Linux, pipes on Windows,
+      etc.).
+    - Registration adds user friction on first app install.
+    - Requires users to understand scopes (UX work).
 
-## Cross-references (must resolve)
+Option B: TCP localhost + token authentication [SIMPLER, LESS SECURE]
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `H4/H7`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-10): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+  API listens on 127.0.0.1:port. Callers present a pre-shared token (stored
+  in a config file or environment).
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+  Pros:
+    - Single implementation for all platforms.
+    - Simpler to debug (standard HTTP tools work).
+
+  Cons:
+    - Token-in-config is a credential-storage anti-pattern.
+    - Any process on the machine can read the config file and call the API.
+    - No caller identification; no per-app scoping.
+    - On multi-user systems, a user with local access can impersonate any app.
+
+Option C: Embedded only; no local IPC
+
+  The agent is compiled into each application. No separate agent process.
+  Applications call the agent as a library; no IPC boundary.
+
+  Pros:
+    - No IPC attack surface.
+    - Simpler deployment (no extra binary).
+
+  Cons:
+    - Each app embeds the agent; key management varies per app.
+    - No shared identity/relationship state across apps.
+    - Contradicts the design goal ("consume a common local agent").
+    - Mobile and desktop diverge significantly.
+
+Recommendation:
+Accept Option A (OS-level caller ID + scopes + secure keystores). Implement
+platform-native security (socket/pipe/embedded API). Define the scope model
+clearly in CONTRIBUTING.md and the agent documentation.
+
+Consequences:
+  - §17: update local API security model (as proposed).
+  - Implementer guide: platform-specific socket/pipe creation, SCM_RIGHTS
+    (Linux), named-pipe ACLs (Windows), iOS/Android framework integration.
+  - Test vectors: unauthorized caller rejection, scope enforcement.
+  - UX: user approval flow for registration; admin-scope confirmation.
+  - Audit: log format for admin calls (caller, method, timestamp, parameters
+    excluding secrets).
+
+================================================================================

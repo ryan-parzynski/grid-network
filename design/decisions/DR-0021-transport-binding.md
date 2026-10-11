@@ -10,6 +10,18 @@ linked_finding: M4
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Transport binding"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-21
+severity: Low
+blocks: EXT
+linked_finding: M4
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-21 — Transport binding
 
@@ -25,34 +37,58 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-21: TRANSPORT BINDING AND SESSION CONTINUITY
+[HIGH PRIORITY, WIRE PROTOCOL IMPACT]
 
-Context (M4): rendezvous ingestion (§33); transport mapping (§34). [PROPOSED]. Rec (PROPOSED): HTTPS rendezvous V1; wire protocol deferred. Consequences: spec/PROTOCOL.md §34; spec/OBJECTS.md §4 envelope unchanged.
+Problem:
+Objects are signed and chained at the protocol level, but transport is
+separate (§11.4). A device connects via WireGuard today and IPv4 relay
+tomorrow. How does reachability state bind to a transport session? Are
+sessions bound to a ReachabilityRecord? Can an endpoint hint be used across
+multiple transports?
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Sessions are transport-agnostic; endpoints are hints only
 
+  A ReachabilityRecord carries an endpoint (IP/port/transport type) as a hint.
+  Applications connecting to a peer use any transport; the hint is advisory.
+  If the hint is stale, connection falls back to another endpoint or relay.
+  No session is signed to a specific transport.
 
+  Pros:
+    - Flexible: applications can change transports without re-negotiation.
+    - Simple: no session-binding protocol.
+    - Robust: stale endpoint hints do not break connectivity.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Cons:
+    - Endpoints leak metadata (ISP, region, uptime pattern).
+    - No way to ensure a peer is "always reachable at this endpoint."
+    - Replay attacker could serve old endpoints.
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+Option B: Reachability records are transport-specific and strictly
+time-bounded
 
-## Consequences
+  A ReachabilityRecord is valid only for the transport and endpoint named.
+  Sessions must re-verify reachability before switching transports. Endpoint
+  freshness is critical.
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Pros:
+    - More control: explicit per-transport validity.
 
-## Security review answers (§19)
+  Cons:
+    - Heavier: verifier must check reachability on transport switch.
+    - More state: multiple records per device (IPv4, IPv6, relay, etc.).
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+Recommendation:
+Accept Option A (transport-agnostic, endpoints are hints). Aligns with the
+principle that "connectivity failure does not change authorization state."
+Add a note in the wire protocol: endpoints are advisory; verifiers MUST NOT
+reject a connection solely because the endpoint differs from the hint.
 
-## Cross-references (must resolve)
+Consequences:
+  - §11.2: clarify endpoint semantics ("advisory hint, not ground truth").
+  - Wire protocol (separate document): connection fallback logic when the
+    endpoint hint fails.
+  - Test vectors: successful connection to an endpoint; fallback when
+    unreachable.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-21 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
-
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

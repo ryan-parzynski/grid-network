@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Transmissible fork-proof object"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-15
+severity: Med
+blocks: EXT
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-15 — Transmissible fork-proof object
 
@@ -25,34 +37,59 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-15: TRANSMISSIBLE FORK-PROOF OBJECT
+[MEDIUM PRIORITY, DEPENDS ON D-03]
 
-Context: proof that a fork occurred, transmissible to third party. [PROPOSED]. Options: A=signed ForkProof with root+prev+branch-point; B=implicit (inspect chain). Rec (PROPOSED): A. Consequences: spec/OBJECTS.md §6 (placeholder NEEDS AUTHOR INPUT if schema absent). Security: forgery prevented by sig.
+Problem:
+§14 (D-03) generates FORK_EVIDENCE as a verifier outcome. But how does one
+verifier communicate fork evidence to another? What is the authoritative
+representation of a fork? D-15 considers whether to add a signed fork-proof
+object that can be transmitted and acted upon.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Fork evidence is verifier-local; no transmissible object
 
+  FORK_EVIDENCE is an outcome at one verifier; it records conflicting objects
+  in its audit log. If another verifier queries, the first verifier can
+  describe the fork informally (e.g., via a log export or a manual report).
 
+  Pros:
+    - Simpler: no new object or transmission protocol.
+    - Verifiers are accountable: they hold fork evidence and cannot blame
+      each other.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Cons:
+    - No standardized way to communicate forks.
+    - Another verifier cannot automatically update based on fork evidence.
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+Option B: ForkProof object signed by a disputing party [NEW OBJECT]
 
-## Consequences
+  A new separator: grid/fork-proof/v1. Signed by one of the two conflicting
+  stream authors. Contains: stream_id, conflicting_sequence,
+  conflicting_commitments (array of object_commitment hashes), reason, issued_at.
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  A verifier that receives a ForkProof can validate the signatures on both
+  conflicting objects and mark the stream FORKED.
 
-## Security review answers (§19)
+  Pros:
+    - Transmissible: can be shared via rendezvous, relay, or email.
+    - Standardized: every verifier knows how to parse and validate it.
+    - Auditable: the ForkProof itself is signed.
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+  Cons:
+    - Adds a new object type (1 more in the registry).
+    - Proof generation and validation logic (small, but adds code).
+    - Requires the disputing party to voluntarily generate a proof (could be
+      kept secret).
 
-## Cross-references (must resolve)
+Recommendation:
+Defer to D-23 (vector planning). If testing reveals that fork communication
+is valuable, add ForkProof in V1.1. For V1, fork evidence is verifier-local
+(Option A).
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-15 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
+Consequences:
+  - If Option B is chosen later: add grid/fork-proof/v1 to EXTENSION registry;
+    implement and vector it.
+  - D-23: include fork scenarios and evidence-communication scenarios in the
+    test plan.
 
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+================================================================================

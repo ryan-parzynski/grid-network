@@ -10,6 +10,18 @@ linked_finding: H1/M1
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Relationship privacy"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-07
+severity: High
+blocks: V1
+linked_finding: H1/M1
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-07 — Relationship privacy
 
@@ -25,38 +37,90 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-07: RELATIONSHIP PRIVACY — ASSERTION STREAM LOCATION
+[HIGH PRIORITY, IMPACTS D-01 AND DEPLOYMENT]
 
-Context (H1/M1): assertions in issuer stream expose relationship (H1); match/termination scope (M1). Option A: per-relationship stream counterpart-only. [OPEN D-07] [PROPOSED].
+Problem:
+v0.6.2 places RelationshipAssertion and RelationshipTermination in the
+principal's identity stream. Rendezvous servers are expected to serve identity
+streams. Anyone querying the rendezvous learns the principal's entire contact
+list (H1). The spec acknowledges anonymity is not a property, but this is a
+larger exposure than intended.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Per-relationship stream, shared only with counterpart [PROPOSED]
 
-- **A:** Per-relation stream, counterpart-only. Pros: privacy; isolation. Cons: cross-ref to identity; more streams.
-- **B:** Identity stream (v0.6.2). Pros: simple. Cons: exposes.
+  A new stream type: stream:relationship:<relationship_id>, created during
+  pairing by both parties. It contains assertions and terminations for that
+  specific relationship only. It is not published to rendezvous; it is
+  exchanged directly between the two parties (via relay or direct path).
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  relationship_id is derived from the pairing transcript (D-06/M1).
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Pros:
+    - Social graph is not exposed.
+    - Scalable: each relationship has its own stream; no per-device
+      relationship accounting in the identity stream.
+    - Simpler identity stream: only identity/key/binding/revocation/continuity
+      data, not relationships.
+    - Relationship state is symmetric by design: each party holds the same
+      stream with the same objects.
 
-## Consequences
+  Cons:
+    - One more stream type / object type.
+    - Relationship discovery requires direct communication; a third party
+      cannot verify relationships between peers A and B by querying
+      rendezvous. (Depends on use case; not always a con.)
+    - Adds streaming state management (per-relationship).
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+Option B: Identity stream + optional encryption, rendezvous does not serve
+relationship objects
 
-## Security review answers (§19 rule)
+  Assertions and terminations remain in the identity stream (per v0.6.2), but
+  the rendezvous API is restricted: GET /v1/identity/{peer_id} returns only
+  IdentityDocument, KeyRevocation, and IdentityContinuity, never
+  RelationshipAssertion/Termination.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Pros:
+    - Keeps all peer state in one stream.
+    - Existing logic unchanged.
+    - Third-party verifiers can still see the peer's identity.
 
-## Cross-references (must resolve)
+  Cons:
+    - Identity stream still grows with relationships (though they're not
+      served).
+    - Rendezvous must filter served objects; adds a filtering rule.
+    - Clients must use out-of-band channels (relay or direct) to discover
+      relationships anyway.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `H1/M1`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-07): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Option C: No change; live with the exposure
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+  Relationships are public. Users who care about anonymity do not use the
+  service.
+
+  Pros:
+    - No design change.
+    - Simpler.
+
+  Cons:
+    - Violates the design's spirit ("no infrastructure authority, but also
+      no incidental mega-leaks").
+    - Creates a user-visible privacy cliff.
+
+Recommendation:
+Accept Option A (per-relationship streams). Closes H1. Simplifies identity
+and relationship state management. Adds clarity to the wire protocol.
+
+Consequences:
+  - D-01: add stream:relationship:<relationship_id> to the text-name model.
+  - OBJECTS.md: move RelationshipAssertion and RelationshipTermination to
+    relationship streams; remove them from identity stream.
+  - §7: update the relationship state machine; note that RECOGNIZED requires
+    holding both sides' assertion streams.
+  - Rendezvous API (D-20): specifies how relationship streams are exchanged
+    (direct endpoint, relay, encrypted channel).
+  - Test vectors: pairing produces relationship stream; assertions and
+    terminations in that stream only.
+  - Wire protocol (D-21): specifies transport for relationship-stream objects
+    between peers.
+
+================================================================================

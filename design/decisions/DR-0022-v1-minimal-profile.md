@@ -10,6 +10,18 @@ linked_finding: L1
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — V1 minimal profile"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-22
+severity: High
+blocks: V1
+linked_finding: L1
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-22 — V1 minimal profile
 
@@ -25,34 +37,68 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-22: V1 MINIMAL PROFILE AND SCOPE [REFERENCE D-14, D-24]
+[BLOCKING, PLANNING DECISION]
 
-Context (L1): v1 scope (§56); excludes multi-device sync, relay economics, licensing (D-25). [PROPOSED]. Rec (PROPOSED): V1 = identity+auth+reachability+pairing+rendezvous; V1.1 = freshness+resource+local API; EXT = relay/recovery/multi-store. Consequences: spec/PROTOCOL.md §56; spec/OBJECTS.md §6 (scope — NEEDS AUTHOR INPUT if schema range not defined).
+Problem:
+v0.6.2 defines 19 object types, but not all are needed to prove the kernel.
+D-22 is the planning decision for what goes in V1 minimal (§13.5) vs V1.1 vs
+EXTENSION.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Minimal V1 profile [PROPOSED in §13.5]
 
+  9 core object types: IdentityDocument, KeyRevocation, RelationshipAssertion,
+  RelationshipTermination, Grant, Lease, GrantRevocation, LeaseRevocation,
+  ReachabilityRecord.
+  + IdentityContinuity (if D-05 root rotation in V1).
+  + IdentityTerminal (if D-05 accepted; required for continuity).
+  + FreshnessAttestation (if D-08 Option A accepted; ephemeral).
 
+  Streams: identity, relationship (if D-07 Option A), authorization,
+  reachability.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Removed from V1: Services as separate principals, StreamResolution,
+  relays beyond minimal ticket model, operator manifests, recovery, multipath,
+  federation.
 
-> **PROPOSED:** (selection above; do not mark DECIDED). If accepted: update status; update spec; CHANGELOG; vectors (D-23).
+  Exit criteria for v0.8.0: CDDL for every V1 object, reference verifier, 
+  byte-exact vectors, two independent verifiers agree on all vectors.
 
-## Consequences
+  Pros:
+    - Scoped: provable in reasonable time.
+    - Kernel-focused: all authority decisions covered (identity,
+      relationships, grants, leases, revocation, reachability).
+    - Unblocks extensions: clear boundary between V1 and later work.
 
-Files: `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md`. Dimensions per body above.
+  Cons:
+    - V1.1 work is deferred (services, federation, etc.).
+    - Some use cases (e.g., service-specific keys) are not V1.
 
-## Security review answers (§19)
+Option B: Kitchen sink: all 19 types in V1
 
-- Authority protected? Yes (signature / root / key role).
-- Attack prevented? Per context.
-- Failure behavior if absent? Safe denial.
-- Complexity added? Per option; minimized when deferred (B).
+  v0.6.2 as-is: all object types in V1.
 
-## Cross-references (must resolve)
+  Pros:
+    - Complete: every described feature is V1.
 
-- Review: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md)
-- Index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related: [`DR-0013`](./DR-0013-ed25519-and-references.md) (Ed25519); [`DR-0017`](./DR-0017-previous-hash-redundancy.md) (prev_hash); [`DR-0018`](./DR-0018-object-identity.md) (refs); [`DR-0019`](./DR-0019-history-checkpoints.md) (checkpoints).
-- Spec (v0.6.2 + PENDING D-22 callout): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md)
+  Cons:
+    - Unbounded scope: never ship.
+    - Testing burden: 19 object types × 4 outcomes × edge cases = huge vector
+      set.
+    - Distraction: relay economy, federation, recovery are not kernel.
 
-*Status PROPOSED. Four-outcome content only in DR-0003; never in spec §14 (stays v0.6.2). All option letters preserved. Sections marked NEEDS AUTHOR INPUT where input incomplete (D-15 schema, D-19 checkpoint format, D-23 vector values, D-25 license text, D-09 delegation details if not already in v0.6.2).*
+Recommendation:
+Accept Option A (minimal profile). Draw a hard line around V1: identity,
+relationships, grants, leases, reachability, revocation, pairing. Everything
+else defers to V1.1 or extensions.
+
+Consequences:
+  - §13.4 and §13.5: finalize the object registry with V1 / V1.1 / RESERVED /
+    EXTENSION labels.
+  - OBJECTS.md: write CDDL for the 9–11 V1 objects only initially.
+  - design/EXTENSIONS.md: describe ServiceRecord, OperatorManifest,
+    RelayTicket, RelayNodeRecord, StreamResolution, federation, multipath,
+    recovery.
+  - Roadmap: stages 2–3 are V1 (kernel); stages 4+ are V1.1 and extensions.
+
+================================================================================

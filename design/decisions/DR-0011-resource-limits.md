@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Resource limits"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-11
+severity: High
+blocks: V1
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-11 — Resource limits
 
@@ -25,38 +37,69 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-11: RESOURCE LIMITS AND PARSER HARDENING
+[HIGH PRIORITY, BLOCKS DEPLOYMENT]
 
-Context: [PROPOSED] per-peer/per-object bounded limits (§13.6). No specific finding code — proposed in review.
+Problem:
+v0.6.2 states that limits are "deferred to the applicable completed schema."
+Hostile CBOR input must be rejected before allocation; without normative
+limits, every parser is left guessing (H5).
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Normative table in §13.6 [PROPOSED]
 
-- **A:** Hard caps (count/bytes/window). Pros: bounded; DoS-resistant. Cons: arbitrary; needs tuning.
-- **B:** Soft/configurable. Pros: flexible. Cons: not enforceable.
+  Encode starting limits in the specification as a normative table:
+    Max encoded object size .................. 16 KiB
+    Max CBOR nesting depth ................... 8
+    Max text string length (free text) ....... 1024 bytes
+    Max identifier length .................... 128 bytes
+    Max byte string length ................... 1024 bytes
+    Max elements in any set/array ............ 256
+    Max authorized_keys / bindings ........... 64 each
+    Max capabilities per Grant ............... 64
+    Max constraint map entries ............... 32
+    Max endpoints per ReachabilityRecord ..... 16
+    Max deferred (gap) objects per stream .... 64
+    Max objects per sync response ............ 256
+    Max fork-evidence records per stream ..... 16
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Exceptions: IdentityDocument may be 64 KiB to accommodate large authorized_keys
+  and bindings.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Pros:
+    - Implementations know exactly where to check.
+    - Prevents DOS by allocation (parser rejects oversized input before heap
+      allocation).
+    - Unambiguous interoperability.
 
-## Consequences
+  Cons:
+    - Limits may need adjustment after measurement; if so, new version of
+      protocol.
+    - Specifying limits is a commitment; if too tight, real deployments fail.
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+Option B: Guidelines only; defer to implementation
 
-## Security review answers (§19 rule)
+  §13.6 is advisory. Implementations choose their own limits.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Pros:
+    - Flexibility: each implementation can optimize for its environment.
 
-## Cross-references (must resolve)
+  Cons:
+    - Verifiers diverge: one rejects an object as oversized; another accepts
+      it.
+    - Interoperability breaks.
+    - No protection against DOS by allocation.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `—`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-11): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Recommendation:
+Accept Option A (normative table in §13.6). Test against the limits before
+release (D-23). If measurement shows a limit is wrong, revise and re-tag the
+spec.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+Consequences:
+  - §13.6: finalize the table with measurements (D-23 responsibility).
+  - Implementer guide: pseudocode for size checks before CBOR parsing.
+  - Test vectors: object at limit, object 1 byte over limit (rejection).
+  - Conformance: every conformance test must enforce the same limits.
+  - IdentityDocument exception: document the reason (large key sets) and keep
+    it in reviews.
+
+================================================================================

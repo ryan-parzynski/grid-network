@@ -10,6 +10,18 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Monotonic clock reset on reboot"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-12
+severity: Med
+blocks: V1.1
+linked_finding: —
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-12 — Monotonic clock reset on reboot
 
@@ -25,38 +37,81 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-12: MONOTONIC CLOCK RESET ON REBOOT AND RELATIVE VALIDITY
+[HIGH PRIORITY, OPERATIONAL IMPACT]
 
-Context: §40 clock semantics; reboot resets clock; affects D-08 freshness, D-02 chain init.
+Problem:
+v0.6.2 forbids falling back to wall-clock time after a monotonic clock reset
+(reboot). Every relative-validity lease becomes unverifiable and the device
+fails closed until refresh. This will feel like an outage to users, but the
+spec does not acknowledge it or provide a graceful recovery path (H6).
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Persisted wall-clock lower bound [PROPOSED in §12]
 
-- **A:** Handled by sequence continuity (prev_hash). Pros: no external clock. Cons: freshness weaker.
-- **B:** External sync required. Pros: accurate. Cons: dependency.
+  On shutdown (and periodically, ~60 s), persist (wall_clock_now,
+  accumulated_elapsed) for each relative-validity object.
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  On boot:
+    - If wall clock >= persisted value: relative validity is
+      persisted_elapsed + (wall_now − persisted_wall), never less than
+      persisted_elapsed. Clock did not go backwards.
+    - If wall clock < persisted value: device remains STALE until refresh or
+      clock is corrected. Never count time as unelapsed.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Pros:
+    - Survives reboots without hard failure.
+    - Still fails closed if the clock actually goes backwards (security
+      property retained).
+    - Incremental: does not change the validity check, only the startup logic.
+    - User-visible improvement: users won't notice brief access pause after
+      reboot if they refresh within seconds.
 
-## Consequences
+  Cons:
+    - Adds persistent state (one more data structure).
+    - Requires periodic checkpointing (implementation detail).
+    - If the device's filesystem is corrupted/reset, the persisted state is
+      lost and the device falls back to STALE-on-boot.
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+Option B: Wall clock allowed; trust device's clock
 
-## Security review answers (§19 rule)
+  Remove the monotonic-clock requirement. Use wall clock for all relative
+  validity. If the clock goes backwards or the device reboots, relative
+  validity is recomputed from wall clock.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Pros:
+    - Simpler: no checkpoint logic.
+    - No STALE-on-boot experience.
 
-## Cross-references (must resolve)
+  Cons:
+    - Loses monotonic-clock protection against clock-skew attacks.
+    - A compromised device that resets its clock can extend expired leases.
+    - Violates the "fail closed on clock skew" principle.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `—`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-12): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Option C: No recovery; accept the STALE-on-boot experience
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+  Relative validity is still lost on reboot. Devices must refresh. Users
+  are told in documentation that "access may pause briefly after restart."
+
+  Pros:
+    - Simplest: no code change.
+
+  Cons:
+    - Poor user experience.
+    - Conflict with deployment reality: home servers, mobile, laptops all
+      reboot.
+
+Recommendation:
+Accept Option A (persisted wall-clock lower bound). Balances security and
+operational realism. Document the behavior in user guides.
+
+Consequences:
+  - §12: update reboot rule (as proposed).
+  - Implementer guide: checkpoint timing, persistence format, clock-skew
+    handling.
+  - Test vectors: reboot scenarios (clock forward, clock backward, no
+    persisted state).
+  - User docs: explain the behavior ("brief pause after restart is expected").
+  - D-12 enables reasonable relative-validity operation without sacrificing
+    monotonic-time protection.
+
+================================================================================

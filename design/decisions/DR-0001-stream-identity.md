@@ -10,6 +10,18 @@ linked_finding: C5
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — Stream identity model"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-01
+severity: High
+blocks: V1
+linked_finding: C5
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-01 — Stream identity model
 
@@ -25,39 +37,66 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-01: STREAM IDENTITY MODEL — HASH-DERIVED VS TEXT NAMES
+[BLOCKING, HIGH PRIORITY]
 
-Context (C5): identity stream (§8–§11) undefined for multi-device/delegation; [REVIEW-2026-10-11 C5] [PROPOSED].
+Problem:
+OBJECTS.md §7 defines hash-derived stream_id = H(principal_id || signing_key_id
+|| stream_context || epoch), with key-authorization records and varint
+encoding. PROTOCOL.md §45.1 defines text stream names: stream:identity,
+stream:reachability:<device_id>, etc. These models are incompatible. Choice
+affects IdentityContinuity (C1), chain base derivation (C2), rendezvous
+serialization, and wire protocol.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Text names, qualified by role key ID
 
-- **A:** Single identity stream per root. Pros: simple, one chain. Cons: exposes relationships (H1).
-- **B:** Split streams (identity / relationship / service). Pros: privacy per stream. Cons: cross-stream refs.
-- **C:** Per-relation stream (ties D-07 A). Pros: best privacy. Cons: most complex; needs D-07.
+  stream:identity:<root_key_id>
+  stream:relationship:<relationship_id>  (if D-07 Option A accepted)
+  stream:authorization:<authorization_key_id>
+  stream:reachability:<device_id>
+  stream:service:<service_id>
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Pros:
+    - Human-readable, debuggable logs and diagnostics.
+    - Simpler to implement: no hash computation, no epoch management.
+    - Supports IdentityContinuity: predecessor and successor streams have
+      different root_key_ids and therefore different stream names.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Cons:
+    - Identifier length grows with role key IDs (roughly 20 bytes hex each).
+    - Rendezvous lookup must parse the qualified form or store multiple
+      entries; a hash would compress.
+    - Adds Unicode/ASCII identifier rules (§5.2).
 
-## Consequences
+Option B: Hash-derived with epoch, varint encoding
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+  stream_id = H(principal_id || signing_key_id || stream_context || epoch)
+  Varint encoding of the hash for transport.
+  Epoch counter for rotation without hash collision.
 
-## Security review answers (§19 rule)
+  Pros:
+    - Compact: 32-byte hash → 4–5 bytes in varint form.
+    - Rendezvous queries and storage are simple: all streams for one
+      principal hash to a short key.
+    - Epoch explicitly handles key rotation.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Cons:
+    - Hash encoding adds a second encoding rule (varint) on top of CBOR.
+      The spec forbids non-CBOR encoding; this violates §13.1.
+    - IdentityContinuity doesn't work: old and new roots have the same
+      principal_id, so if stream_context is fixed, they hash to the same
+      stream_id. If stream_context changes, the epoch field is redundant.
+    - Debugging is harder: logs show hashes, not roles.
 
-## Cross-references (must resolve)
+Recommendation:
+Accept Option A (text names, qualified). Addresses C1 directly. Adds
+identifiers per §5.2 (ASCII, max 128 bytes). Update PROTOCOL.md §45.1 and
+OBJECTS.md §7 to use this model everywhere. Delete varint encoding.
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `C5`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-01): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Consequences:
+  - §5.2: Add identifier restrictions (ASCII, length limit).
+  - §13.2: Update chain base to stream_class + stream_id (D-02).
+  - All wire protocol and rendezvous examples use text names.
+  - Test vectors: include stream_id in every object.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+================================================================================

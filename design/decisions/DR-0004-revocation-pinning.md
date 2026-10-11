@@ -10,6 +10,18 @@ linked_finding: C1/C4
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
+---
+title: "Grid Network — KeyRevocation history pinning"
+status: PROPOSED (not ACCEPTED as of 2026-10-11)
+version: 2026-10-11 (review)
+date: 2026-10-11
+id: D-04
+severity: High
+blocks: V1
+linked_finding: C1/C4
+opened: 2026-10-11
+deciders: (pending acceptance)
+---
 
 # D-04 — KeyRevocation history pinning
 
@@ -25,37 +37,61 @@ deciders: (pending acceptance)
 - Date opened: 2026-10-11
 - Status: PROPOSED
 
-## Context / Problem
+D-04: KEYREVOCATION HISTORY PINNING
+[BLOCKING, CRITICAL PRIORITY]
 
-Context (C1/C4): sequence-only revocation weak (§18–§20); proposed fields: revocation_type, revoked_key, revoked_at_sequence, pinned_previous_hash, pinned_root_sequence, revocation_signature; effective_sequence=0 conflicts. [OPEN D-04].
+Problem:
+v0.6.2 KeyRevocation names effective_sequence but not what history is
+legitimate below it. An attacker with a compromised Authorization Key can
+construct an alternative branch at sequences below effective_sequence; a
+verifier that never saw the genuine objects there accepts the fake branch.
+C4 identifies the gap.
 
-## Options considered (preserved from PART V — A/B/C, pros, cons)
+Option A: Pin predecessor chain hash [PROPOSED in §9]
 
-- **A:** Full pinning. Pros: replay-resistant, ordered. Cons: larger; needs chain state.
+  KeyRevocation gains: revoked_stream_id, effective_predecessor_chain_hash
+  (the chain_hash of the object at effective_sequence - 1, or
+  initial_chain_hash if effective_sequence = 1).
 
-## Recommendation (PROPOSED — NOT DECIDED)
+  Objects on any branch not leading to that pinned hash are REVOKED.
 
-> **PROPOSED:** (selection per options above; do not mark DECIDED until accepted via PR). If this decision is accepted: update this file status; update `spec/PROTOCOL.md` and `spec/OBJECTS.md` (remove/add PENDING DECISION callout); update `spec/CHANGELOG.md`; regenerate test vectors if affected (D-23).
+  Pros:
+    - Unambiguous: the legitimate chain is pinned by the root.
+    - Fails closed: an attacker building an alternative branch below the
+      revocation point is detected when revocation is received.
+    - Works with D-03 fork evidence: if the verifier's accepted state
+      diverges, the divergent branch objects are marked REVOKED atomically.
 
-## Consequences
+  Cons:
+    - KeyRevocation becomes 2–3 fields larger.
+    - Verifiers must store more history (must keep the pinned object's state
+      available for comparison).
 
-- **Files:** `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/CHANGELOG.md` (and `design/DECISIONS.md` index when accepted).
-- **Dimensions:** new fields / key roles / verification paths / reference rules / stream splits / transport bindings.
-- **Migration:** (note if any; otherwise "none — applies to new records").
+Option B: No pinning; revoke only effective_sequence and above
 
-## Security review answers (§19 rule)
+  effective_sequence alone revokes sequence >= N. Anything before N is
+  accepted as-is, no pinning.
 
-- **Authority protected?** Yes — root or delegated key role signs the relevant object; verification uses strict Ed25519 (§58) with domain separator.
-- **Attack prevented?** Per context (replay / forgery / inference / escalation — see "Context").
-- **Failure behavior if absent?** Safe denial — absence of record / proof = authorization not granted (not a security failure of authority).
-- **Complexity added?** Documented per option above; minimized by staying with v0.6.2 where proposal is deferred (B options).
+  Pros:
+    - Simpler: smaller KeyRevocation.
+    - Assumes the verifier's accepted state is trustworthy.
 
-## Cross-references (must resolve)
+  Cons:
+    - Allows alternative history below the revocation point.
+    - Does not fail closed if the verifier's earlier state was forked without
+      it knowing.
+    - Violates "no missing information grants authority."
 
-- Review finding: [`../REVIEW-2026-10-11.md`](../REVIEW-2026-10-11.md) (search tag `C1/C4`)
-- Decision index: [`../DECISIONS.md`](../DECISIONS.md)
-- Related decisions (links below must resolve to DR-*.md in same directory):
-  - [`DR-0002`](./DR-0002-chain-base.md) relates to D-04 pin content; [`DR-0007`](./DR-0007-relationship-privacy.md) relates to D-09/stream split; [`DR-0009`](./DR-0009-root-custody.md) affects D-05/D-07.
-- Spec (v0.6.2 kernel + PENDING DECISION callout for D-04): [`../../spec/PROTOCOL.md`](../../spec/PROTOCOL.md) / [`../../spec/OBJECTS.md`](../../spec/OBJECTS.md) — callouts added at affected sections.
+Recommendation:
+Accept Option A (pinned predecessor hash). Closes C4 directly and
+deterministically. Update §9 with the amended fields.
 
-*Preservation: option letters A/B/C and pros/cons preserved from PART V; status = PROPOSED (not ACCEPTED); for D-03, four-outcome proposal kept ONLY here — `spec/PROTOCOL.md` §47 and `spec/OBJECTS.md` §9 remain v0.6.2 with PENDING DECISION callout.*
+Consequences:
+  - OBJECTS.md KeyRevocation schema: add revoked_stream_id,
+    effective_predecessor_chain_hash.
+  - Test vectors: KeyRevocation pinning scenarios (alternative branch rejected,
+    rollback on divergence).
+  - Verifier: check pinned hash against accepted predecessor when processing
+    revocation.
+
+================================================================================
