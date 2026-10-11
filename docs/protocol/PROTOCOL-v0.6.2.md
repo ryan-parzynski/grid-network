@@ -4,8 +4,7 @@
 
 **Design Document — v0.6.2**
 
-Status: Draft
-Version: 0.6.2
+
 Supersedes: v0.6.1
 Scope: Identity, relationships, authorization, revocation, reachability, transport integration, deployment model, failure semantics, reconciliation
 
@@ -1180,7 +1179,6 @@ KeyState {
 }
 ```
 
-Status: `ACTIVE`, `REVOKED`, `SUPERSEDED`, `UNKNOWN`.
 
 ### 47.3 Relationship state
 

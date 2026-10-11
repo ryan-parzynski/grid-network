@@ -1,6 +1,6 @@
 # Grid Network — Implementation Guide
 
-**Status:** To be drafted (Tier 2 task)  
+**Status:** To be drafted (Tier 2 task)
 **Depends on:** PROTOCOL.md v0.6.2, OBJECTS.md §1–§5, SECURITY.md
 
 ---

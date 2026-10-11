@@ -4,8 +4,7 @@ Mesh Identity & Reachability Protocol
 
 Design Document — v0.6.1
 
-Status: Frozen
-Version: 0.6.1
+
 Supersedes: v0.6, v0.5, v0.4.2
 Scope: Identity, relationships, authorization, revocation, reachability, transport integration, deployment model, failure semantics, reconciliation
 
@@ -1131,7 +1130,6 @@ KeyState {
 }
 ```
 
-Status: ACTIVE, REVOKED, SUPERSEDED, UNKNOWN.
 
 47.3 Relationship state
 
@@ -2151,8 +2149,8 @@ Lease Reachability Record No conflict Authorization and location orthogonal
 Lease Relay Ticket A governs Authorization state governs
 Authorization Key State Grant A governs for key validity; B retains its own intrinsic semantics Revoked key invalidates covered grants
 Authorization Key State Lease A governs for key validity; B retains its own intrinsic semantics Revoked key invalidates covered leases
-Key Revocation Grant A governs for key validity; B retains its own intrinsic semantics 
-Key Revocation Lease A governs for key validity; B retains its own intrinsic semantics 
+Key Revocation Grant A governs for key validity; B retains its own intrinsic semantics
+Key Revocation Lease A governs for key validity; B retains its own intrinsic semantics
 
 Service-domain pairs
 

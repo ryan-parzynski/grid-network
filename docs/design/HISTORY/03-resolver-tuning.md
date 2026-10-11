@@ -1,6 +1,6 @@
 260921-01-NotDNS Resovler Tuning
 
-# 
+#
 
 ## Executive Summary: Resilient Mesh Rendezvous Project
 

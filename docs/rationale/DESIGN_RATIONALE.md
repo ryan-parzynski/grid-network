@@ -1,1761 +1,1085 @@
-# Mesh Identity & Reachability Protocol
+# Grid Network — Design Rationale
 
-## Relay, Low-Power Nodes, Path Diversity & Residential Connectivity Design Record
-
-**Status:** Design record / architectural rationale
-**Related protocol:** Mesh Identity & Reachability Protocol v0.6 / planned v0.6.1
-**Purpose:** Preserve the reasoning, alternatives, conclusions, and unresolved questions surrounding relay infrastructure, Raspberry Pi/community nodes, residential connectivity, bandwidth behavior, and future multipath/path-selection capabilities.
+**Status:** Complete draft  
+**Version:** 2.0
 
 ---
 
-## 1. Purpose of This Document
+## Executive Summary
 
-This document records a substantial design discussion about the role of relays and low-power devices in the Mesh Identity & Reachability Protocol.
+Grid Network is a **control plane for identity, authorization, and reachability** that sits above whatever networking already exists.
 
-The discussion began with a practical question:
-
-> Can inexpensive devices such as Raspberry Pis provide useful relay infrastructure?
-
-It expanded into several related questions:
-
-* Does a relay need to terminate WireGuard or other encryption?
-* How capable can a Raspberry Pi 3B be as a relay?
-* What persistent storage does a relay need?
-* Can thousands of inexpensive community nodes create meaningful aggregate infrastructure?
-* Is relay infrastructure still important as NAT traversal and direct connectivity improve?
-* Why do residential peer-to-peer connections sometimes achieve much less than advertised bandwidth?
-* Can multiple independent paths improve this?
-* Is the behavior analogous to torrent swarms?
-* Can burst tolerance or flow fairness be leveraged?
-* What existing technologies already solve parts of this problem?
-* Should multipath be part of the Mesh kernel?
-* What should be standardized now versus deferred?
-
-The resulting architectural position is:
-
-> **Relays should be treated as replaceable, untrusted connectivity resources rather than authorities or mandatory intermediaries. Direct connectivity should be preferred whenever practical. A future path-selection/multipath layer can exploit multiple independent paths when doing so improves throughput, resilience, latency, or availability. Low-power devices can contribute useful capacity because the value of the network comes from distributed resources and path diversity, not merely from individual node performance.**
-
-This document is deliberately outside the normative protocol kernel. It records design rationale and future direction rather than adding requirements to v0.6.1.
+Not a VPN. Not a tunnel. Not a replacement for WireGuard, IPv6, or any transport protocol. A layer that answers questions *about* devices and their permissions, using signed objects that participants hold and verify themselves.
 
 ---
 
-# 2. Core Architectural Context
+## The Problem
 
-The Mesh protocol is fundamentally a **control plane above existing transports**.
+Every self-hosted service, personal server, home automation system, and private application eventually hits the same wall:
 
-Its primary responsibilities are:
+> *"How do I reach this from somewhere else?"*
 
-1. cryptographic identity
-2. relationships
-3. authorization
-4. leases
-5. revocation
-6. freshness
-7. service/device identity
-8. reachability information
-9. discovery/rendezvous
-10. selection of an appropriate connectivity path
+This is not a niche problem. It affects home servers running Jellyfin, Immich, Nextcloud; home automation running Home Assistant; NAS devices with file sharing; personal code repositories; backup infrastructure; game servers; development machines you want to SSH into.
 
-It is deliberately not:
+The problem is not technical. The technology exists. The problem is **institutional**: no vendor-neutral way exists to establish and maintain portable identity and authorization.
 
-* a replacement for IP
-* inherently a VPN
-* inherently a relay network
-* a blockchain
-* a global identity registry
-* an anonymity network
-* a mandatory cloud service
-* an application authorization replacement
+### The Three Bad Choices Today
 
-The architectural abstraction is approximately:
+**Choice 1 — Expose to the Internet:** Open a port, forward on the router, hope nothing scans you. Firmware vulnerabilities, default credentials, automatic scanners, Shodan exposure, ransomware attacks.
 
-```text
-Application
-     │
-     ▼
-Mesh Agent
-     │
-     ├── Identity
-     ├── Relationship
-     ├── Authorization
-     ├── Service identity
-     ├── Reachability
-     ├── Discovery
-     └── Path selection
-              │
-       ┌──────┼────────┐
-       ▼      ▼        ▼
-    Direct  Relay    Future
-   transport          paths
-       │      │        │
-       └──────┼────────┘
-              ▼
-        Existing network
-```
+**Choice 2 — Use a Proprietary Tunnel/Mesh VPN:** Tailscale, Cloudflare Tunnel, ZeroTier, ngrok. Beautiful products, excellent UX. But: company owns the device graph, access policies, relationship data. Company is a permanent authority. If company changes terms, gets acquired, shuts down, changes pricing — user adapts or loses network. Underlying protocol is proprietary: no third-party implementations, no competing providers, can't switch without rebuild.
 
-The application should ideally ask:
+**Choice 3 — Build It Yourself:** Run your own VPN, manage certificates, handle dynamic DNS, deal with CGNAT, NAT traversal, relay infrastructure, revocation, offline state. Works, but requires sysadmin expertise most people don't have. Even technical people spend weekends debugging it.
 
-> “Connect me to this service identity.”
+### The Hidden Cost
 
-It should not need to know whether the eventual path uses:
+The obvious framing: "This is inconvenient." The real framing: **"The ability to reach your own devices has become a subscription."**
 
-* IPv6
-* direct IPv4
-* NAT traversal
-* QUIC
-* WireGuard
-* another supported transport
-* a single relay
-* multiple relays
-* future multipath mechanisms
+A decade ago: open a port (risky but yours) or run a VPN (awkward but yours). Today: the easy path is to sign up for a service. Works beautifully. But you don't own your network anymore. You're renting the ability to reach your own stuff.
+
+This is the same story as email, social media, cloud storage, and every other layer of the internet. Convenience slowly becomes dependence. It's not a conspiracy; it's how products work. But it creates a specific cost: **you don't own your digital relationships.** Your home server's relationship to your phone is mediated by Tailscale's servers. If Tailscale disappears, the relationship disappears. Not because the technology failed. Because you never actually owned it.
 
 ---
 
-# 3. Relay as a Connectivity Resource
+## The Solution
 
-## 3.1 Fundamental role
+Grid Network is a **control plane for identity, authorization, and reachability** that sits above whatever networking already exists.
 
-A Mesh relay is best understood as a **forwarding resource**.
+### The Three Questions
 
-It is not:
+1. **Who is this?** — A cryptographic identity, controlled by the participant.
+2. **What is it allowed to do?** — A signed authorization, verified locally.
+3. **Where can I find it?** — An ephemeral reachability record, refreshed as networks change.
 
-* an identity authority
-* an authorization authority
-* a service owner
-* a relationship authority
-* a rendezvous authority
-* an application proxy
+Every question is answered by signed objects. No answer requires contacting a central authority.
 
-Its job is to help packets get from one endpoint to another when direct connectivity is unavailable, undesirable, or insufficient.
+### What Grid Network Is Not
 
-The preferred conceptual model is:
+- Not a decentralized VPN (VPN is a transport; Grid is a control plane above transports)
+- Not a DNS replacement (DNS maps names to addresses; Grid maps identities to reachability with authorization)
+- Not an anonymity network (peers are identified; metadata visible to infrastructure operators)
+- Not a blockchain (no global consensus, no ledger, no mining, no token)
+- Not a peer-to-peer file system (no distributed storage)
+- Not a company (no operator, no owner, no central authority)
+- Not a Tor/I2P/Freenet replacement (those provide anonymity through routing)
 
-```text
-Endpoint A
-    │
-    │ encrypted traffic
-    ▼
+---
+
+## Five Key Design Properties
+
+### Property 1 — Identity is Portable
+A device's identity is a cryptographic keypair. It does not depend on any account, server, provider, vendor, or central authority. Survives network changes, device replacement, provider changes, infrastructure changes, service outages.
+
+### Property 2 — Authorization is Local
+A device verifies authorization itself, using state it holds locally. Enables offline authorization, partition-tolerant authorization, authority-independent verification, immediate revocation.
+
+### Property 3 — Reachability is Ephemeral
+Where a device currently is, is not part of its identity. It's a hint, refreshed as networks change. Enables seamless network transitions, IP address changes, untrusted rendezvous, infrastructure portability.
+
+### Property 4 — Infrastructure is Untrusted
+Rendezvous servers, relays, and any infrastructure can be operated by anyone, including parties the user doesn't trust. Enforces: no rendezvous server decides authorization, no relay decrypts content, no infrastructure becomes authority, every intermediary can be replaced.
+
+### Property 5 — Protocol is Open
+No proprietary component. Any implementation can speak to any other. Enables community implementations, competitive relays, interoperable infrastructure, no lock-in to any vendor, independent security audits.
+
+---
+
+## The Core Security Invariant
+
+> Given a set of locally trusted anchors, authenticated protocol objects, known revocations, accepted chain state, and recorded observation history, a verifier must be able to deterministically establish the identity, authorization, validity, and freshness state of a peer **as of the verifier's most recent observation**, without contacting an authority.
+
+This means:
+- Rendezvous infrastructure CANNOT define identity
+- Relays CANNOT define authorization
+- DNS CANNOT define identity
+- IP addresses CANNOT define identity
+- WireGuard keys CANNOT by themselves define app-level authorization
+- Temporary pairing codes CANNOT become permanent credentials
+
+---
+
+## How It Works in Practice
+
+Alice sets up her home server. She installs a Grid agent. Bob wants to access Alice's Jellyfin server remotely. Alice gives Bob a QR code. Bob scans the QR code with his phone. The QR code initiates a pairing:
+
+1. Devices exchange public keys (temporary pairing keys)
+2. Bob's phone signs "I recognize Alice's server"
+3. Alice's server signs "I recognize Bob's phone"
+4. Mutual recognition established
+
+Now Alice can grant Bob access:
+1. Alice creates a Grant: "Bob's phone can stream from Jellyfin"
+2. Grant is valid for 30 days, covers Jellyfin.stream capability
+3. Bob's phone automatically renews the lease monthly
+
+Bob accesses Jellyfin from anywhere:
+1. Bob's phone reaches Alice's server (direct if possible, via relay if not)
+2. Server verifies: "Bob's phone has a valid grant for Jellyfin.stream"
+3. Grant verified locally (no contact with Alice or authority needed)
+4. Connection established
+
+Bob loses his phone:
+1. Alice revokes the grant
+2. The revocation is signed by Alice's identity root
+3. Distributed to the network through normal protocol mechanisms
+4. Bob's phone can no longer access anything
+5. Alice issues a new grant to her new phone
+
+Six months later Bob is offline:
+1. Grant remains unchanged (signed, offline-verifiable)
+2. Lease expires (short-lived proofs of current validity)
+3. Bob comes back online
+4. Bob requests fresh lease
+5. Alice's system auto-renews (depending on policy)
+5. Access restored
+
+Alice switches infrastructure providers:
+1. Alice's identity (Peer ID) doesn't change
+2. Alice's relationships (with Bob) don't change
+3. Alice's grants (to Bob) don't change
+4. Only the rendezvous server changes
+5. Bob's phone automatically finds Alice's reachability at new server
+6. Everything continues working
+
+**Key insight:** The infrastructure is replaceable. The relationships are not.
+
+---
+
+## English Explanation (Non-Technical)
+
+261004-notdns English explanation
+Got it. I’ll use simpler language and more real-world analogies from here on.
+
+Your document is basically describing a **private address book, permission system, and delivery network for your own devices**—without needing Google, Apple, a VPN company, or a central “Mesh account” to own the whole thing.[1]
+
+## The simple version
+
+Imagine every person has a durable digital passport.
+
+That passport is not tied to:
+
+- Their phone
+- Their home IP address
+- Their Wi‑Fi network
+- Their Internet provider
+- A company account
+- One particular server
+
+If you replace your phone, move house, get a new ISP, or change your home server, you are still the same person in the mesh.
+
+Your protocol is trying to make this possible:
+
+> “Connect me to Ryan’s photo server.”
+
+Instead of this:
+
+> “Connect to this IP address, through this DNS name, on this port, using this VPN, after setting up this reverse proxy.”
+
+The user should not need to care how the connection happens. The mesh system figures that out.
+
+## What the pieces mean
+
+| Protocol term | Normal-person analogy | What it does |
+|---|---|---|
+| Peer Principal | A person or household identity | “This is Ryan” or “This is the Smith family home” |
+| Identity Root | The master passport or master key stored safely | Proves who the principal really is |
+| Device Key | A house key for one device | Lets a phone, laptop, or server prove it is an approved device |
+| Service Key | A badge for one service | Lets “Ryan’s Immich” or “Ryan’s Jellyfin” prove what it is |
+| Relationship | Mutual contact-book entry | “I recognize you, and you recognize me” |
+| Grant | A permission slip | “Ryan allows Mom to use the photo service” |
+| Lease | An expiration date on that permission | “That permission must be renewed every 30 days” |
+| Revocation | Cancelling a key or permission | “This device was lost; stop trusting it” |
+| Reachability record | A temporary forwarding address | “I’m currently reachable at this network location” |
+| Rendezvous server | A bulletin board | Helps devices find current forwarding addresses |
+| Relay | A temporary courier | Carries encrypted traffic when a direct route is unavailable |
+| WireGuard / transport | The road or tunnel | The actual path that data travels through |
+
+The important part is that a bulletin board is not a passport office, and a courier is not the person who decides who may enter your house.
+
+That separation is one of the best parts of the design.[1]
+
+## What is already very good
+
+The document does a good job of keeping each responsibility in its proper place.
+
+For example:
+
+- A **rendezvous server** can tell you, “Ryan’s server may currently be at this address.”
+- But it cannot say, “This is definitely Ryan.”
+- It cannot create a permission for someone to access Ryan’s services.
+- It cannot cancel Ryan’s permissions.
+- It cannot become the master account provider for everyone.
+
+That is like using a public bulletin board to post, “I’m staying at this hotel this week.” The board can show the message, hide it, or show an old one—but it cannot rewrite your passport, give someone a key to your room, or become your legal identity.
+
+Likewise, a **relay** is like an encrypted courier service. If two devices cannot directly talk because of NAT, CGNAT, hotel Wi‑Fi, or restrictive networks, they can pass encrypted traffic through the courier. The courier helps carry the package, but it should not be able to read it or decide whether the sender is allowed to send it.[1]
+
+## Why the “small details” matter
+
+The large idea is easy to understand:
+
+> Let trusted people and devices find each other safely without everyone needing to become a networking expert.
+
+The difficult part is making sure every implementation agrees on the tiny rules.
+
+Think of a signed protocol object like a notarized paper document.
+
+For two independent programs to agree that a document is genuine, they must agree on details such as:
+
+- What fields must be on the form.
+- What order they appear in.
+- What exactly was signed.
+- Which key was allowed to sign it.
+- Whether it is expired.
+- Whether it was cancelled.
+- Whether it is the newest version.
+- Whether someone has tried to present two conflicting versions.
+
+That is why `OBJECTS.md`, canonical CBOR, hashes, sequence numbers, and test vectors matter. They are the equivalent of making sure every bank can read the same signed cheque and reach the same answer about whether it is valid.[1]
+
+## The few confusing spots
+
+The design is strong, but a few parts need plain-English rules so different developers do not interpret them differently.
+
+### Changing the master identity key
+
+The document lets someone replace their master identity key without changing their long-term identity. That is good.
+
+Analogy: you get a new passport because the old one is expiring, but you are still the same person.
+
+The spec should make crystal clear:
+
+- Which “passport history” is the old one.
+- Which is the new one.
+- How devices know this is a legitimate replacement rather than an impostor showing up with a fake passport.
+- Exactly how the first entry in the new history links to the final entry in the old history.
+
+The document has the right idea with `IdentityContinuity`, which is signed by both the old and new identity roots. It just needs a few extra exact rules so all implementations follow the same chain.[1]
+
+### Relationship expiration
+
+The document says two people recognize each other only when both have made matching recognition statements.
+
+Analogy: both people have each other in their trusted contacts list.
+
+But it needs to be clearer about what happens if one contact entry simply expires.
+
+Those should probably mean different things:
+
+- **Expired**: “We have not renewed this relationship yet.”
+- **Terminated**: “I deliberately ended this relationship. Do not reactivate it.”
+
+A lapsed library card is not the same as being permanently banned from the library. The specification should keep those states clearly separate.[1]
+
+### Cancelling a permission
+
+The document correctly says that permissions can be revoked and must stay revoked.
+
+Analogy: if you cancel a guest’s garage-door code, they should not regain access because an old printout of the permission gets found later.
+
+The remaining detail is to state exactly how a cancellation points to the thing being cancelled:
+
+- Does it point to a specific permission slip?
+- Does it point to a specific temporary renewal?
+- Can it cancel every renewal derived from one permission?
+- How does a device recognize a cancellation that arrived before it ever received the original permission?
+
+The document already has the correct safety idea: remember the cancellation even if the original item has not arrived yet. It just needs the “this cancellation refers to exactly this object” format nailed down.[1]
+
+### Privacy of “where am I?”
+
+A rendezvous server may need to store the current network location of a device.
+
+Analogy: a forwarding-address service may know that you moved and where mail should be sent.
+
+The current design is honest that rendezvous providers can observe metadata. Before calling V1 finished, it should clearly tell users what that may reveal, such as:
+
+- A stable identifier for a person or device.
+- When that identity checks in.
+- Its rough network location or IP address.
+- When its service becomes reachable.
+- Patterns that suggest activity or travel.
+
+That does not make the design bad. It simply means the privacy promise should be precise: **the rendezvous server does not control your identity or permissions, but it may still learn networking metadata unless reachability records are later encrypted or made less linkable.**[1]
+
+## The big picture
+
+Think of today’s self-hosting as giving someone directions to your house:
+
+> “Use this street address, take this route, enter through this door, and hope I have not moved.”
+
+Your project wants to turn that into:
+
+> “You know who I am. You are allowed to visit. Find my current address. If the front road is blocked, use the secure courier route.”
+
+That is a much more natural model.
+
+The protocol does **not** replace the Internet. It is more like a trusted personal coordination layer on top of the Internet:
+
+- The Internet provides roads.
+- WireGuard or another transport provides a secure car or tunnel.
+- A relay provides a backup courier route.
+- Rendezvous provides a bulletin board for current locations.
+- The mesh protocol provides identity, trust, permission, and rules for deciding whether a connection should be allowed.[1]
+
+That is why the project could matter: it could make self-hosted services feel less like “running exposed infrastructure” and more like “my devices and my trusted people can safely find my services.”
+
+Sources
+[1] pasted_text_1791098518.txt https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/36123622/9332606c-9145-476f-9505-dd9f1576fc85/pasted_text_1791098518.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Checksum-Mode=ENABLED&X-Amz-Credential=ASIA2F3EMEYE3XZFYTVF%2F20261004%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261004T072514Z&X-Amz-Expires=2355&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEPj%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJIMEYCIQCoUcg7Gk%2B7oVVKEm8phJSVhxTZtJ9Qu1OW%2BIO5j7796AIhAIoBRPte3Lxgf7KUHm%2Bkx9towksSCEJPZqYumPU8U5KZKokFCMD%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEQARoMNjk5NzUzMzA5NzA1IgzEfonZF5AcFIdHWwcq3QRuZCKhlKPDEeLnn29vJvx%2B0giU%2FtvYrI0JMMTcX6%2FfytqtKuoyP%2Fn5Wl2cwnEE39fy%2Bu%2FdUwf0LxZPuLgrvgXFKd6i5k%2F8avjifBJp%2B8j38GNHCxFQjHD8W7qUSM0zZZjhY8RnqX6i5w8aQ1DO9MJE7srgLj5B1kKp%2FXy1fWECDDBBCDF9xKj9H5PF1prekXrbCzLnxhOTxS5H9laajcjNFExbTGoXk4%2BpwE8qhTCXkgOZx%2BK0anZrIglN1jbXT%2BI%2ByZCEsYc%2FpFa1QuPMKo8CMxtUwS4Diwx5mQQYCr%2BCQLPih%2Bp8w075d6ZgSyFoPuvandgfV65CB%2BFu6FSOLyPCUBsAQP1RwPWNbRhS8r%2BMzBdIrsCHyj%2BV%2FnqmgCRam9igLG8g7FNhQNWXVqGPbDtG68IN%2BVWVWHItZB1ex60ehLtMuQAyWMpYhkfL5%2FwBsNxh9xKgR5mYCFD9YZKzzrPfUunYSvz4b1RHx9KTefRxBjkMLz7ueiYdgz3%2Fto2aQsqKznmrXn85Qs1h5fH%2Fa4MLDTNrWmT14xIr6DRMJopiE1snmB9Uptmu4qC3ld9ZwKfSpINiJ71v4m6JA6sQW6Kq9%2F9yecRYdBdiuol%2FQgdcatmt3M8M3w%2FSOkddZFol%2BglpqTEfHOGka4GbQJQ%2FFPqoFw%2BqJ4OEe2UPDZ6s5iF5ybAgmtntaD%2Bk%2FzPOmU9Yt9kP24Op3%2BJI9vWF5qEQoqsjHfpin7vfu8SdmClQvRbypxvfC0qkMav%2B%2FqXIXkgK0IcINf915IzeaMg8y5OugVi3rblTB%2B2Pfe01LI3ODTC69YfWBjqXAaaKkOKSWrJAlvcl7xfHTA8meAOyCabw7n42z8aYGcTMma2ryJg4AKKuFNmfHrqr1QB1Us7yuN5ZfdkOue8cldR8F9zMvFFW5nWt%2BVAq4epSJZ6lXq%2Fd7syW%2BUknvJAabe4Jwrr%2BaHu64Us7Kz5YdBEk8BpaT7765DEH0c0EdeoF8Z1ghGyaU2Uy8M8NzHO7%2FynuOW9cwBE%3D&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=7e1b4bf11f6a510516bf7b2f12ea2b8d9ffbc5c0f24dd6785c3c5730de2af0ef
+
+
+---
+
+## Future-Proofing
+
+161004-notdns future proofs
+
+Yes—with an important qualification: the kernel can be deliberately designed so these become extensions rather than rewrites, but “easy to implement” is very different for each feature.
+
+The current architecture is actually in a pretty good position for this.
+
+Rough feasibility
+
+Extension	Kernel compatibility	Later implementation difficulty
+Relay capability advertisement	Excellent	Low–medium
+Dynamic relay/path selection	Excellent	Medium
+Commercial relay services	Excellent	Low–medium
+Enterprise groups/roles	Excellent	Medium
+SSO / SCIM integration	Excellent	Medium
+Device posture	Excellent	Medium
+Audit/SIEM	Excellent	Medium
+JIT / step-up authorization	Excellent	Medium
+PAM gateways	Excellent	Medium–high
+Workload identities	Excellent	Medium
+Multi-hop relay	Good	Medium–high
+Onion anonymity	Good, but substantially harder	High
+Strong traffic-analysis resistance	Possible	Very high
+
+The distinction is important: enterprise functionality is mostly policy layered over the kernel. Anonymity requires new cryptographic/network machinery.
+
+⸻
+
+Enterprise is particularly well positioned
+
+Your existing model already has the right primitives:
+
+Identity
+   ↓
+Relationship
+   ↓
+Authorization
+   ↓
+Grant
+   ↓
+Lease
+   ↓
+Connection
+
+Enterprise systems can add statements around those primitives.
+
+For example:
+
+Organization
+    ↓
+Membership
+    ↓
+Group / Role
+    ↓
+Policy
+    ↓
+Authorization
+    ↓
+Existing Grant / Lease
+
+You don’t need to redefine what a Grant means.
+
+A future enterprise layer could simply say:
+
+Alice is a member of Engineering.
+
+Engineering may request capability X.
+
+Alice’s device satisfies posture requirement Y.
+
+This access requires approval from Z.
+
+The resulting authorization still ultimately becomes the same kind of authorization your kernel already understands.
+
+That’s exactly what you want.
+
+⸻
+
+Device posture is another good example
+
+The kernel doesn’t need to understand CrowdStrike, Intune, Jamf, etc.
+
+A future system could produce a signed assertion:
+
+DevicePostureAssertion {
+    device
+    issuer
+    assessment
+    issued_at
+    expires_at
+    ...
+    signature
+}
+
+Something above the kernel evaluates:
+
+IF
+    device ∈ Engineering
+AND device_posture = compliant
+AND requested_service = production-db
+THEN
+    permit access
+
+The kernel continues to understand identity and authorization.
+
+That’s a very clean extension boundary.
+
+⸻
+
+Relay scaling is even easier
+
+The relay work we just discussed is probably one of the easiest additions.
+
+The current protocol already has:
+
+Reachability
+     ↓
 Relay
-    │
-    │ encrypted traffic
-    ▼
-Endpoint B
-```
+     ↓
+RelayTicket
 
-The relay should preferably never need to see plaintext application traffic.
+You can add:
 
----
+RelayNodeRecord
+     ↓
+capabilities
+capacity
+policy
+current load
 
-# 4. Relay Does Not Need to Terminate WireGuard
+Then the local agent can perform:
 
-An important clarification emerged during the discussion.
+direct
+  ↓
+relay A
+  ↓
+relay B
 
-A conventional WireGuard hub might terminate WireGuard at the hub:
+without changing the underlying identity model.
 
-```text
-A ── WireGuard ──> Hub
-                    │
-                 decrypt
-                    │
-                 re-encrypt
-                    │
-                    B
-```
+A Pi and a 10-Gbps bare-metal relay are just two implementations advertising different capabilities.
 
-That is **not the preferred Mesh relay model**.
+⸻
 
-Instead:
+Anonymity is the exception
 
-```text
-A ── encrypted packet ──> Pi Relay ── encrypted packet ──> B
-```
+This is where I’d be much more conservative.
 
-The endpoints establish their end-to-end protected session.
+Basic multi-hop forwarding is straightforward:
 
-The relay forwards the resulting encrypted traffic.
+A → R1 → R2 → R3 → B
 
-This has several advantages:
+But Tor-grade anonymity isn’t simply “three relays.”
 
-* less CPU work at the relay
-* no application plaintext at the relay
-* smaller security boundary
-* compromise of the relay does not reveal application content
-* relay operators do not need application credentials
-* inexpensive hardware becomes more viable
-* relays remain interchangeable
+You have to think about:
 
-A relay may still need to perform limited control-plane checks, such as:
-
-* identifying the relay session
-* validating a RelayTicket or equivalent forwarding authorization
-* enforcing expiration
-* enforcing byte limits
-* enforcing rate limits
-* enforcing session limits
-* applying local admission policy
-
-But these checks should not turn the relay into an application or identity authority.
-
----
-
-# 5. Security Boundary of Relays
-
-The central security principle is:
-
-> **Relays are untrusted transport infrastructure. Compromise or malicious operation of a relay MUST NOT by itself grant application authorization, identity authority, or access to end-to-end protected payloads.**
-
-A malicious relay should primarily be able to cause:
-
-* packet loss
-* delay
-* disconnection
-* reduced availability
-* traffic analysis
-* metadata observation
-* resource consumption against the relay itself
-
-It should not be able to:
-
-* forge a service identity
-* create a relationship
-* issue a grant
-* issue a lease
-* revoke another principal's authorization
-* impersonate a service
-* decrypt end-to-end protected content
-
-This separation is one of the strongest architectural properties of the protocol.
-
----
-
-# 6. Direct Connectivity Comes First
-
-An important refinement during the discussion was that the protocol should **not assume relays are required for NAT traversal**.
-
-Networking technology continues to improve.
-
-Potential direct mechanisms include:
-
-* IPv6
-* direct IPv4
-* NAT traversal
-* UDP hole punching
-* PCP
-* QUIC
-* WireGuard
-* other standardized or implementation-specific mechanisms
-* future transport technologies
-
-Therefore the preferred progression is conceptually:
-
-```text
-1. Direct IPv6
-        ↓
-2. Direct IPv4 / NAT traversal
-        ↓
-3. Other suitable direct transport
-        ↓
-4. Relay fallback
-        ↓
-5. Multiple relays / multipath when useful
-```
-
-This makes Mesh transport-neutral and future-proof.
-
-The protocol should not become obsolete if NAT traversal gets significantly better.
-
-Instead, improved networking automatically becomes another tool available to the Mesh path-selection layer.
-
----
-
-# 7. Why Relays Still Matter
-
-Better NAT traversal does not eliminate all difficult environments.
-
-Examples include:
-
-* symmetric or restrictive NAT
-* carrier-grade NAT
-* corporate firewalls
-* hotel/public Wi-Fi
-* restrictive carrier networks
-* IPv4-only networks
-* networks where inbound UDP is unavailable
-* networks where port mapping cannot be established
-* local policy prohibiting direct connectivity
-* cases where direct connectivity exists but has undesirable performance
-* cases where an alternative path has better latency, reliability, or bandwidth
-
-Therefore the relay is best viewed as an **escape hatch**.
-
-The argument for relays is no longer:
-
-> “NAT is impossible without them.”
-
-It is:
-
-> “There should always be a replaceable path resource available when the best direct path is unavailable or inadequate.”
-
-That is a stronger and more future-proof position.
-
----
-
-# 8. Why Low-Power Devices Can Matter
-
-The discussion initially considered whether Raspberry Pi-class hardware was sufficiently powerful.
-
-The conclusion was that the answer depends heavily on what the relay is actually doing.
-
-If the relay is terminating encryption and acting as a full VPN hub, CPU and cryptographic processing become more significant.
-
-If it is primarily forwarding already-encrypted traffic, the workload becomes much lighter.
-
-A low-power node can therefore contribute:
-
-* a small amount of bandwidth
-* a geographic location
-* a particular ISP/ASN
-* IPv4 or IPv6 reachability
-* an additional independent path
-* temporary capacity
-* redundancy
-* local/community infrastructure
-
-The value does not have to come from a single powerful machine.
-
----
-
-# 9. Raspberry Pi 3B as an Example
-
-A Raspberry Pi 3B has modest resources and a 100-Mbit Ethernet interface.
-
-It should not be assigned a normative performance guarantee by the protocol.
-
-However, as a planning concept, a Pi 3B can be useful as a modest relay because:
-
-* forwarding is much cheaper than application processing
-* the relay need not persist packet data
-* end-to-end encryption remains at the endpoints
-* the 100-Mbit Ethernet interface is itself a meaningful ceiling
-* actual capacity depends on packet size, packets per second, concurrent sessions, OS/network stack, Internet uplink, and implementation
-
-The correct engineering approach is therefore:
-
-> **Benchmark actual implementations rather than encode hardware performance assumptions into the protocol.**
-
-A Pi 3B should be viewed as a possible community node, not as a prescribed relay class.
-
----
-
-# 10. Advertise Capabilities, Not Hardware Classes
-
-The protocol should not fundamentally advertise:
-
-> “This is a Raspberry Pi 3B.”
-
-Instead it should expose useful capabilities.
-
-A future `RelayCapability` concept might include:
-
-```text
-roles
-transport capabilities
-maximum bandwidth
-maximum concurrent sessions
-maximum bytes
-maximum session duration
-maximum concurrent paths
-network-family support
-latency characteristics
-availability expectations
-geographic metadata
-privacy capabilities
-operator policy
-```
-
-The meaningful property is:
-
-> “This resource can provide these connectivity characteristics.”
-
-not:
-
-> “This resource contains this CPU.”
-
-The same protocol can therefore operate across:
-
-* Raspberry Pis
-* routers
-* NAS systems
-* laptops
-* x86 servers
-* VPS instances
-* cloud infrastructure
-* dedicated relay hardware
-
----
-
-# 11. Stable Capability vs Dynamic State
-
-An important distinction is required between **capability** and **current utilization**.
-
-Stable or relatively stable information might include:
-
-* maximum supported bandwidth
-* supported transports
-* IPv4/IPv6
-* maximum sessions
-* policy
-* geographic/ASN metadata
-* expected availability
-
-Dynamic state includes:
-
-* current bandwidth
-* current session count
+* circuit construction
+* layered encryption
+* relay compromise
+* guard selection
+* timing correlation
+* packet-size correlation
+* traffic volume correlation
+* circuit rotation
 * congestion
-* current path quality
-* temporary reachability
-* current resource consumption
+* malicious relays
+* Sybil attacks
+* relay discovery
+* exit behavior
+* metadata leakage
+* active attacks
 
-Dynamic state should generally remain ephemeral.
+For example, even if:
 
-The protocol should not require a relay to persist every utilization change.
+A → R1 → R2 → R3 → B
 
-For example:
+is encrypted, an observer who can watch both ends might correlate traffic timing and volume.
 
-```text
-Relay:
-    configured capacity = 50 Mbps
+So I’d say:
 
-Current:
-    37 Mbps in use
-    13 Mbps estimated available
-```
+The kernel can support anonymity without being redesigned around anonymity, but a genuinely strong anonymity system is a major subsystem in its own right.
 
-The latter can be local operational state.
+That’s actually another reason not to put it in v1.
 
----
+⸻
 
-# 12. Persistent Storage Requirements
+The really good sign is the separation you’re already creating
 
-A relay does not need large persistent storage merely to forward traffic.
+Your architecture increasingly looks like:
 
-Persistent state can include:
+┌─────────────────────────────────────────────┐
+│ Applications                                │
+├─────────────────────────────────────────────┤
+│ Enterprise / policy / privacy extensions    │
+│                                             │
+│ Groups • SSO • posture • SIEM • JIT • PAM   │
+│ Onion routing • privacy policies            │
+├─────────────────────────────────────────────┤
+│             MESH KERNEL                     │
+│                                             │
+│ Identity                                    │
+│ Relationships                               │
+│ Authorization                               │
+│ Grants / Leases                             │
+│ Revocation / Freshness                      │
+│ Service identity                            │
+│ Reachability                                │
+│ Rendezvous                                  │
+│ Relay                                       │
+│ Transport                                   │
+├─────────────────────────────────────────────┤
+│ Existing Internet                           │
+└─────────────────────────────────────────────┘
 
-* identity keys
-* configuration
-* accepted protocol state
-* signed objects
-* revocation state
-* checkpoints
-* bounded logs
-* administrative metadata
+That’s a very healthy architecture.
 
-It should not need to perform:
+The kernel provides stable primitives.
 
-```text
-packet → disk
-packet → disk
-packet → disk
-...
-```
+Extensions compose those primitives.
 
-for normal forwarding.
+⸻
 
-A useful design invariant is:
+And this answers an important concern about “future-proofing”
 
-> **Forwarding traffic, connection statistics, and transient reachability observations MUST NOT require persistent storage writes.**
+There’s a bad way to future-proof a protocol:
 
-This reduces:
+Add every feature we might someday want.
 
-* SD-card wear
-* storage requirements
-* I/O overhead
-* power consumption
-* complexity
+That produces an enormous, complicated kernel.
 
-It also makes inexpensive hardware substantially more practical.
+You’re doing the better version:
 
----
+Make today’s primitives sufficiently expressive that tomorrow’s features don’t need to redefine them.
 
-# 13. Community Infrastructure Model
+For example, your decision to make authorization directional, immutable, leased, revocable and cryptographically verifiable is useful far beyond the immediate v1 use case.
 
-A particularly important conclusion was that the value of low-power nodes can come from **scale and distribution**.
+It gives future systems something solid to build upon.
 
-Imagine:
+⸻
 
-```text
-Home A → Pi relay → 10 Mbps
-Home B → Pi relay → 20 Mbps
-Home C → Pi relay → 30 Mbps
-Home D → Pi relay → 50 Mbps
-NAS E  → relay    → 100 Mbps
-VPS F  → relay    → 1 Gbps
-```
+I’d classify the future work into three buckets
 
-No individual household needs to operate a major data center.
+🟢 Mostly straightforward extensions
 
-Instead, the network gains:
+These should be reasonably approachable once the kernel is stable:
 
-* many alternative paths
-* geographic diversity
-* ISP diversity
-* ASN diversity
-* redundancy
-* aggregate resources
-
-A node that contributes only 10 Mbps can still be useful.
-
-This suggests a general principle:
-
-> **Community connectivity infrastructure can be valuable through distributed small contributions, not only through high-capacity centralized nodes.**
-
----
-
-# 14. Network Self-Healing
-
-Because relays are replaceable resources, the network can adapt to resource scarcity.
-
-If:
-
-```text
-Relay A → overloaded
-```
-
-the path selector can choose:
-
-```text
-Relay B → available
-Relay C → available
-Relay D → available
-```
-
-If:
-
-```text
-Relay B → disappears
-```
-
-the system can establish another path.
-
-If one ISP path becomes congested, another path may be preferable.
-
-If a geographic region lacks resources, additional nodes can increase its available capacity.
-
-The design principle is:
-
-> **Optimize around scarce resources rather than pretending scarcity does not exist.**
-
-Potential scarce resources include:
-
-* bandwidth
-* latency
-* relay capacity
-* uptime
-* geographic availability
-* IPv4
-* IPv6
-* connection slots
-* CPU
-* battery
-* storage
-
----
-
-# 15. Residential Bandwidth Problem
-
-A major part of the discussion concerned an observed practical phenomenon:
-
-> Residential-to-residential peer-to-peer transfers can sometimes achieve a surprisingly small fraction of the advertised access bandwidth.
-
-The important conclusion is **not** that all residential ISPs deliberately throttle peer-to-peer traffic.
-
-There are many possible causes:
-
-* ordinary congestion
-* peering constraints
-* routing
-* traffic engineering
-* fair queuing
-* per-flow scheduling
-* TCP congestion behavior
-* traffic management
-* access-network architecture
-* CGNAT
-* asymmetric links
-* bottlenecks elsewhere in the path
-
-An advertised 500-Mbit/s service does not necessarily mean that an arbitrary end-to-end flow to another residential subscriber will obtain 500 Mbps.
-
----
-
-# 16. Fair Sharing and Multiple Flows
-
-The discussion examined ISP/network fairness behavior.
-
-A network can apply fairness at different levels:
-
-```text
-subscriber
-household
-access link
-destination
-flow
-TCP connection
-```
-
-This matters enormously.
-
-If a bottleneck effectively gives each flow a share:
-
-```text
-One flow:
-    50 Mbps
-
-Several flows:
-    50 + 50 + 50 + ...
-```
-
-then applications using many flows can achieve greater aggregate throughput.
-
-Torrent swarms are an intuitive example because they typically involve many simultaneous peer connections.
-
-However, if the ISP enforces an aggregate subscriber limit:
-
-```text
-Subscriber:
-    500 Mbps maximum
-
-Flow 1: 100
-Flow 2: 100
-Flow 3: 100
-Flow 4: 100
-Flow 5: 100
-```
-
-then adding more flows cannot exceed the aggregate access capacity.
-
-Therefore:
-
-> **Multipath cannot defeat an aggregate physical/access-link bottleneck.**
-
-Its value appears when bottlenecks are sufficiently independent.
-
----
-
-# 17. The Key Distinction: Multiple Flows vs Multiple Paths
-
-Opening many connections does not necessarily create independent network paths.
-
-For example:
-
-```text
-Flow 1 ─┐
-Flow 2 ─┤
-Flow 3 ─┼── same bottleneck ── destination
-Flow 4 ─┘
-```
-
-may simply divide the same bottleneck differently.
-
-The more interesting situation is:
-
-```text
-Path A ── bottleneck A ──┐
-Path B ── bottleneck B ──┤
-Path C ── bottleneck C ──┼── destination
-Path D ── bottleneck D ──┘
-```
-
-If the paths have sufficiently independent constraints, aggregate throughput can potentially increase.
-
-That is the fundamental motivation for future Mesh path diversity.
-
----
-
-# 18. Multipath Relay Concept
-
-A future Mesh implementation could discover:
-
-```text
-             Relay A
-            /       \
-           /         \
-Endpoint A             Endpoint B
-           \         /
-            \       /
-             Relay B
-```
-
-or:
-
-```text
-Endpoint A
-    │
-    ├──── direct ──────────────── Endpoint B
-    │
-    ├──── Relay A ─────────────── Endpoint B
-    │
-    ├──── Relay B ─────────────── Endpoint B
-    │
-    └──── Relay C ─────────────── Endpoint B
-```
-
-The endpoint could maintain several simultaneously usable paths.
-
-Traffic could then be distributed according to measured conditions.
-
-The relays do not need to know that they are part of a larger multipath system.
-
-Each relay simply forwards opaque traffic.
-
----
-
-# 19. Existing Multipath Technologies
-
-The discussion examined existing technologies to avoid reinventing solved problems.
-
-Important examples include:
-
-### MPTCP
-
-Multipath TCP allows one logical connection to use multiple subflows.
-
-Relevant lessons:
-
-* path managers
-* packet schedulers
-* congestion control
-* path measurement
-* failover
-* packet reinjection
-* dynamic path selection
-
-MPTCP demonstrates that multipath aggregation is a practical engineering problem, not merely a theoretical concept.
-
-### MLVPN
-
-Multi-Link VPN systems demonstrate:
-
-* multiple-link aggregation
-* heterogeneous links
-* failover
-* packet reordering
-* practical bandwidth aggregation
-
-### OpenMPTCProuter
-
-Demonstrates practical residential multi-link aggregation using technologies such as MPTCP and multipath QUIC approaches.
-
-It generally uses a VPS/aggregation point and multiple Internet connections belonging to the same user.
-
-### Important distinction
-
-These systems typically solve:
-
-> “How do I combine multiple links that I control?”
-
-The Mesh concept potentially extends the idea to:
-
-> **“How can I select and combine useful paths supplied by independently operated community nodes?”**
-
-That is the potentially novel architectural aspect.
-
----
-
-# 20. Torrent Analogy
-
-Torrent swarms provide a useful analogy but should not be copied directly.
-
-A torrent can obtain high aggregate throughput because it communicates with many peers.
-
-Conceptually:
-
-```text
-Peer 1 ─┐
-Peer 2 ─┤
-Peer 3 ─┤
-Peer 4 ─┼── local endpoint
-Peer 5 ─┤
-Peer 6 ─┘
-```
-
-Different connections may encounter:
-
-* different congestion
-* different routes
-* different bottlenecks
-* different peers
-* different access networks
-
-Mesh could use a similar principle deliberately, while still maintaining one logical service connection.
-
-The important difference is that Mesh would ideally preserve:
-
-* service identity
-* authorization
-* end-to-end encryption
-* explicit path policy
-* controlled resource use
-
-rather than simply creating many application-level transfers.
-
----
-
-# 21. Burst Behavior
-
-The discussion also considered whether networks may tolerate short bursts differently from sustained traffic.
-
-Modern congestion-control systems already probe available capacity and adjust their sending rate.
-
-This suggests a possible future interaction between:
-
-* transport-level congestion control
-* path-level scheduling
-* relay selection
-
-However, the design should **not** make “trick the ISP into allowing bursts” a protocol goal.
-
-Deliberate excessive bursting can cause:
-
-* queues
-* packet loss
-* bufferbloat
-* unfairness
-* congestion collapse
-
-The useful goal is:
-
-> **Exploit naturally available capacity while adapting responsibly to congestion.**
-
-Bursting should be an emergent result of scheduling/transport behavior rather than a traffic-evasion mechanism.
-
----
-
-# 22. Adaptive Path Scheduling
-
-A naive multipath implementation might do:
-
-```text
-A B C D A B C D ...
-```
-
-This is undesirable when paths differ substantially.
-
-Example:
-
-```text
-Path A: 10 ms RTT
-Path B: 30 ms
-Path C: 80 ms
-Path D: 150 ms
-```
-
-Blind round-robin creates packet reordering.
-
-Instead, the scheduler should measure:
-
-* throughput
-* RTT
-* loss
-* jitter
-* congestion
-* reordering
-* stability
-
-and dynamically weight paths.
-
-Example:
-
-```text
-Path A: 55%
-Path B: 25%
-Path C: 15%
-Path D: 5%
-```
-
-Those weights should be dynamic.
-
-If conditions change, allocation changes.
-
----
-
-# 23. Endpoint-Owned Multipath State
-
-The preferred architecture is that **the endpoints own the multipath state**.
-
-Relays remain independent forwarding resources.
-
-They do not need to:
-
-* coordinate with other relays
-* understand application semantics
-* know the overall PathSet
-* decrypt traffic
-* maintain application state
-
-Conceptually:
-
-```text
-                 Mesh endpoint
-                      │
-                Path scheduler
-                /    |    \
-               /     |     \
-          Relay A Relay B Relay C
-```
-
-This preserves the relay's simple role and limits the complexity of infrastructure nodes.
-
----
-
-# 24. Potential Future PathSet Abstraction
-
-A future extension could define something conceptually similar to:
-
-```text
-PathSet
-    path_1
-    path_2
-    path_3
-```
-
-An application might request:
-
-```text
-min_bandwidth
-max_latency
-multipath = permitted
-max_paths
-redundancy = optional
-```
-
-The Mesh agent would translate that into actual paths.
-
-The application would not need to understand:
-
-* relay addresses
-* WireGuard endpoints
-* NAT mappings
-* rendezvous servers
-* path scheduling
-* relay credentials
-
-This reinforces the application-facing abstraction:
-
-> **Connect to service identity, not endpoint address.**
-
----
-
-# 25. Optional Redundancy and FEC
-
-Multipath can also be used for resilience rather than only throughput.
-
-Future mechanisms could include:
-
-* redundant packet transmission
-* forward error correction
-* selective duplication
-* packet reinjection
-* fast failover
-
-However:
-
-> **FEC and redundancy add overhead. They do not create bandwidth from nothing.**
-
-They should therefore remain optional capabilities.
-
----
-
-# 26. Path Diversity Is More Important Than Raw Relay Count
-
-Ten relays behind the same ISP may not provide ten truly independent paths.
-
-For future path selection, useful diversity could include:
-
-* different ASNs
-* different upstream providers
-* different geographic locations
-* different access networks
-* IPv4 vs IPv6
-* different congestion domains
-
-Therefore:
-
-```text
-10 relays
-    ↓
-same ISP
-same upstream
-same region
-```
-
-may provide less useful diversity than:
-
-```text
-3 relays
-    ↓
-3 different networks
-3 different regions
-```
-
-The future scheduler should therefore consider **topological diversity**, not just node count.
-
----
-
-# 27. Privacy Implications
-
-Relays introduce metadata exposure even when payloads remain encrypted.
-
-A relay can potentially observe:
-
-* endpoint network addresses
-* traffic volume
-* timing
-* session duration
-* packet sizes
-* connection patterns
-
-It should not normally see:
-
-* application plaintext
-* application authorization credentials
-* private service contents
-
-Mesh v1 should therefore explicitly distinguish:
-
-> **Confidentiality is not anonymity.**
-
-The protocol does not provide anonymity of participation.
-
-Future optional multi-hop/onion-style transports could provide stronger metadata privacy without changing the underlying identity and authorization model.
-
-That should remain a separate extension rather than a requirement of the base relay.
-
----
-
-# 28. Resource Controls
-
-Community relays create potential abuse and resource-exhaustion problems.
-
-Important controls include:
-
-* connection limits
-* per-session byte limits
-* rate limits
-* session expiration
-* aggregate bandwidth limits
-* admission policy
-* storage quotas
-* bounded state
-* anti-amplification
-* relay tickets
-* expiration
-
-A relay should not need to trust a remote party merely because that party can reach it.
-
----
-
-# 29. Computational Admission Costs
-
-The discussion considered proof-of-work or other computational costs.
-
-The conclusion was that computational cost should **not** be foundational.
-
-Potential uses include:
-
-* mass rendezvous publication
-* mass relay-session establishment
-* mass pairing attempts
-* other resource-specific abuse
-
-But first-line defenses should remain:
-
-* rate limiting
-* quotas
-* expiration
-* connection limits
-* storage limits
-* policy
-
-The principle is:
-
-> **Attach computational cost to the scarce resource being protected, not to identity creation itself.**
-
-A universal proof-of-work requirement would add:
-
-* energy consumption
-* calibration complexity
-* hardware inequity
-* unnecessary cost for legitimate users
-
-without necessarily solving the actual attack.
-
----
-
-# 30. Low-Power Nodes and Community Economics
-
-The architecture naturally supports several participation levels.
-
-Conceptually:
-
-```text
-Tiny node
-    ↓
-occasional / low-bandwidth relay
-
-Home SBC
-    ↓
-community relay
-
-NAS / router
-    ↓
-larger relay
-
-x86 / VPS
-    ↓
-high-capacity relay
-
-Professional infrastructure
-    ↓
-regional/global relay
-```
-
-This creates a possible community infrastructure market.
-
-Operators could compete on:
-
-* bandwidth
-* latency
-* geographic availability
-* uptime
-* privacy
-* reliability
-* price
-* network diversity
-* service guarantees
-
-A relay provider can be replaced without changing the identity of the service being accessed.
-
-That is important to the larger Mesh economic model:
-
-> **Open the connectivity substrate; commercialize the layers above it.**
-
----
-
-# 31. Commercial and Ecosystem Implications
-
-The relay discussion fits the broader Mesh economic thesis.
-
-Today, vendors frequently bundle:
-
-* identity
-* device enrollment
-* discovery
-* NAT traversal
-* remote access
-* relay infrastructure
-* VPN-like connectivity
-* application access
-* cloud accounts
-
-Mesh separates those functions.
-
-Potentially affected categories include:
-
-### Managed mesh VPNs
-
-Most direct overlap.
-
-Their value can shift toward:
-
-* management
+* relay capabilities
+* path requirements
+* load-aware relay selection
+* organizations
+* groups
+* roles
 * enterprise policy
-* SSO
-* device posture
-* audit
-* support
-* high-quality relay infrastructure
-* administration
+* SSO/SCIM adapters
+* device posture assertions
+* audit events
+* workload identities
+* service classifications
+* managed relay infrastructure
 
-rather than owning the fundamental connectivity protocol.
+🟡 Significant but architecturally clean
 
-### DDNS
+These require more engineering but don’t threaten the kernel:
 
-Stable cryptographic service identity reduces dependence on changing public IP addresses.
+* JIT authorization
+* delegated administration
+* break-glass access
+* PAM gateways
+* multi-organization relationships
+* sophisticated policy engines
+* high-availability relay networks
+* multipath connectivity
 
-### Reverse proxies/tunnels
+🔴 Cryptographically/networking intensive
 
-Community relays can provide an open alternative to vendor-specific tunnels.
+These deserve their own serious protocols/specifications:
 
-### Consumer remote-access clouds
+* Tor-like anonymity
+* strong traffic-analysis resistance
+* metadata protection
+* anonymous credentials
+* private discovery
+* mix networks
+* sophisticated anti-Sybil mechanisms
 
-NAS/camera/appliance vendors could potentially integrate Mesh rather than requiring proprietary remote-access clouds.
+⸻
 
-### Personal cloud/VPS
+The most encouraging part
 
-Users could expose services without needing to solve the complete combination of:
+The hard part you’re doing now is the foundation.
 
-* public IP
-* DNS
-* TLS
-* port forwarding
-* VPN
-* remote access
-* identity
+Getting:
 
-independently.
+* canonical serialization
+* signatures
+* sequence spaces
+* chain semantics
+* identity continuity
+* authority boundaries
+* relationship semantics
+* revocation
+* freshness
+* leases
+* deterministic verification
 
-The intended result is not to eliminate commercial services.
+exactly right is much more foundational than adding an enterprise dashboard later.
 
-It is to make the underlying connectivity interoperable.
+Once that foundation is stable, an enterprise implementation doesn’t have to reinvent the protocol. It can essentially say:
 
----
+“Here’s our organization policy. Here’s our signed device posture. Here’s our role. Here’s our authorization decision.”
 
-# 32. Pros of the Community Relay Model
+And an anonymity implementation can say:
 
-## 32.1 Low barrier to participation
+“Here’s a different transport path that happens to use several mesh relays.”
 
-Cheap hardware can contribute.
+That’s the architecture you want: hard things later should be new layers, not excuses to break the kernel.
 
-## 32.2 Distributed capacity
-
-Capacity does not need to come from a few centralized providers.
-
-## 32.3 Geographic diversity
-
-Nodes can exist in many places.
-
-## 32.4 ISP/ASN diversity
-
-Different residential providers can create genuinely different network paths.
-
-## 32.5 Resilience
-
-A failed relay can be replaced.
-
-## 32.6 End-to-end security
-
-Relays do not need application plaintext.
-
-## 32.7 Vendor neutrality
-
-Users can change relay providers without changing service identity.
-
-## 32.8 Better resource utilization
-
-Unused residential capacity could potentially become useful community infrastructure.
-
-## 32.9 Natural path experimentation
-
-The architecture provides a foundation for future multipath research.
-
-## 32.10 Compatibility with existing transports
-
-The relay layer does not require inventing a new Internet transport.
 
 ---
 
-# 33. Cons / Risks
+## Elevator Pitches
 
-## 33.1 Bandwidth may not actually aggregate
+The Mesh Protocol — A 3-Minute Pitch
 
-If all paths share the same bottleneck, multiple paths do not create additional capacity.
+The problem
 
-## 33.2 Relay traffic costs operators
+Right now, if you want to reach something on your own home network from anywhere else — your Jellyfin server, your photos on a NAS, your home assistant, your desktop — you usually have three bad options.
 
-Community nodes consume:
+Option one: expose it to the internet. Open a port, forward it on your router, hope nothing scans you. This is how people accidentally publish their security cameras to the open web.
 
-* bandwidth
-* electricity
-* router resources
-* hardware lifespan
+Option two: use a proprietary tunnel. Cloudflare Tunnel, Tailscale, ZeroTier, ngrok. These work well. But they require you to make an account with a company, log in with Google or GitHub, and accept that the company owns your device list, your access rules, and the identity of every machine in your network. If you ever want to leave, your network leaves with you.
 
-## 33.3 Abuse
+Option three: self-host the whole thing. Run your own VPN, manage your own keys, deal with dynamic IPs, CGNAT, NAT traversal, port forwarding. This works, but only if you're a sysadmin. Normal people can't do this.
 
-Public relays can be abused for unwanted traffic.
+So we have a situation where the technology to build private networks between your own devices exists, but using it requires either giving a company permanent control over your digital relationships, or becoming an expert.
 
-## 33.4 Metadata exposure
+What Mesh does differently
 
-Relays can observe traffic patterns even when payloads are encrypted.
+Mesh is a cryptographic identity and authorization layer that sits above whatever networking happens to exist. It's not a VPN. It's not a tunnel service. It's not a replacement for WireGuard or Tailscale's underlying technology.
 
-## 33.5 Path correlation
+It's the layer that answers these questions without a company being the final authority:
 
-Multiple relays do not automatically provide anonymity.
+· Who is this machine? — A cryptographic identity that belongs to you, not to an account.
+· Do we recognize each other? — A mutual assertion that two devices can verify directly.
+· What are they allowed to do? — A signed grant from you to them.
+· Is that still valid? — A short-lived lease that can expire or be revoked.
+· Where can I find them right now? — A reachability record, refreshed as networks change.
 
-## 33.6 Scheduling complexity
+Every one of these questions gets answered by cryptographically signed objects that your devices hold and verify locally. A rendezvous server can help two devices find each other. A relay can forward traffic when direct connectivity fails. But neither of them can decide who you are, what you're allowed to do, or whether you're still authorized. That decision happens on your devices, using state your devices already have.
 
-Multipath introduces:
+If the rendezvous server disappears tomorrow, your existing relationships still work. If the relay is compromised, it can see encrypted traffic patterns but not your data, and it can't grant anyone access to anything. If a company running infrastructure goes out of business, you switch to another one — your Peer ID, your services, your relationships, and your grants all carry forward unchanged.
 
-* packet reordering
-* congestion-control interaction
-* buffering
-* path measurement
-* failure recovery
+Why this is different
 
-## 33.7 Low-power hardware limits
+There are three things that make this hard to build, and Mesh addresses each one directly.
 
-Pi-class nodes have finite:
+First, identity has to survive location. Today, everything online is identified by where it is: an IP address, a DNS name, an account tied to a specific server. If the location changes, the identity breaks. Mesh separates the two completely. Your Peer ID is a random identifier that never changes. Your device key binds it to cryptographic material. Your reachability record — where you currently are — is ephemeral and untrusted. Changing your IP address, moving from Wi-Fi to cellular, going through CGNAT, switching rendezvous providers: none of these change who you are or what you're authorized to do.
 
-* bandwidth
-* packet-processing capacity
-* concurrent-session capacity
-* storage
-* uptime
+Second, authorization has to survive offline. If your device is offline for six months, the network shouldn't forget you exist. But it also shouldn't keep granting you access forever on the basis of a permission someone gave you years ago. Mesh solves this with two separate concepts: relationships, which are long-lived, and leases, which expire. You come back online after a year and your relationship is still recognized — but your access is denied until you renew. This is not a limitation; it's the thing that makes the system safe to leave unattended.
 
-## 33.8 Operational complexity
+Third, no intermediary can become an authority by accident. This is the design principle that distinguishes Mesh from every other system in this space. A rendezvous server that helps two peers find each other doesn't get to decide they're authorized to talk. A relay that forwards their packets doesn't get to grant access to the service they're reaching. A DNS-like registry of peers doesn't get to define who they are. Every intermediary can do exactly one thing and cannot escalate into anything else. This is enforced by the object model, not by policy.
 
-A large community relay network eventually needs:
+What this is useful for
 
-* policy
-* abuse handling
-* monitoring
-* admission control
-* reputation or deployment-specific trust
+For an ordinary person, this looks like:
 
-## 33.9 No guarantee of ISP behavior
+You install a small agent on your home server and your phone. You scan a QR code. From then on, you can reach your home services from anywhere — through the internet if that works, through a relay if it doesn't, through your home Wi-Fi if you're there. The agent handles the network details. Your applications — Jellyfin, Immich, Nextcloud, Home Assistant — just work, because the agent gives them a local connection that behaves like a normal network service.
 
-The protocol cannot assume that poor residential throughput is caused by per-flow shaping.
+But there's a difference from Tailscale or Cloudflare Tunnel. You don't have an account. There's no company in the loop that knows who you are. The QR code established a cryptographic relationship that lives on your devices. If the infrastructure operator goes out of business, you point your peer at a different one — a friend's server, a community relay, a VPS you rent yourself — and everything keeps working. Your relationships, your authorizations, your service names, your device identities: all portable.
 
-## 33.10 Potential dual-use
+And because the same protocol works at any scale, a small self-hoster, a family, a company, and a global infrastructure operator all speak the same language. There's no "enterprise tier" that unlocks the actual security model. The security model is the same for everyone. What companies sell is reliability, bandwidth, support, and convenience — not the fundamental ability to connect your own devices.
 
-Open relay infrastructure can be abused.
+Why this matters now
 
-The base protocol should therefore remain security-neutral while deployment policies address abuse.
+The current commercial landscape for private connectivity is dominated by companies that own the account layer. Tailscale owns your device graph. Cloudflare owns your tunnel endpoint. Every commercial mesh VPN, every managed tunnel, every "secure remote access" product is built on the assumption that the vendor is the permanent coordinator.
+
+This works fine until it doesn't. Vendors change pricing. They get acquired. They pivot. They shut down features you depend on. And when that happens, your network stops working — not because the technology failed, but because you never really owned it.
+
+Mesh is the observation that this arrangement isn't necessary. The technology to connect your own devices privately has existed for years. What's been missing is a way to make the identity and authorization of those devices portable, so that no company has to be the permanent owner of your digital relationships.
+
+If we build it, the effect is like email. Anyone can run a mail server. Anyone can switch providers. Nobody needs Yahoo's permission to send a message to someone at Gmail. The infrastructure is commoditized; what remains valuable is quality, reliability, and support.
+
+That's what Mesh is trying to do for private network connectivity.
 
 ---
 
-# 34. What Should NOT Be Assumed
+The 30-second version
 
-The design should avoid these unsupported assumptions:
-
-### Do not assume:
-
-> Every residential ISP throttles P2P.
-
-### Do not assume:
-
-> Multiple flows always increase throughput.
-
-### Do not assume:
-
-> Multiple relays always provide independent paths.
-
-### Do not assume:
-
-> A Pi can provide a particular guaranteed bandwidth.
-
-### Do not assume:
-
-> Relays are required for NAT traversal.
-
-### Do not assume:
-
-> Multipath defeats an aggregate subscriber bandwidth limit.
-
-### Do not assume:
-
-> Bursting is inherently beneficial.
-
-### Do not assume:
-
-> More relays automatically means more anonymity.
-
-### Do not assume:
-
-> Hardware class predicts network usefulness.
-
-These should be treated as empirical questions or deployment-specific properties.
+Every time you want to reach your own devices from outside your home, you have to choose between exposing them to the internet or renting a company's account to coordinate them. Mesh is a cryptographic protocol that makes the coordination layer portable. Your identity and your relationships belong to you, not to a vendor. The result is private connectivity that behaves like email: anyone can run the infrastructure, anyone can switch providers, and no company gets to decide whether your network exists.
 
 ---
 
-# 35. Recommended Future Benchmark Program
+The 10-second version
 
-Before standardizing multipath behavior, implement experiments.
+Mesh makes private connectivity portable. Your devices, your identities, your relationships — owned by you, not rented from a company.
 
-## Test A — Single flow
+————-
 
-Measure:
+Why Mesh matters for projects like Immich, Jellyfin, Home Assistant, Nextcloud
 
-```text
-A → B
-one TCP/QUIC flow
-```
+The pitch so far has been about the user's problem: "how do I reach my stuff from anywhere." But there's a second problem that's equally important and gets much less attention — the problem of the application developer who has to build and operate connectivity infrastructure they have no business building.
 
-Record:
+This is where Mesh becomes genuinely valuable for the open-source ecosystem, not just for self-hosters.
 
-* Mbps
-* RTT
-* loss
-* retransmissions
+The problem every self-hosted app eventually hits
 
-## Test B — Multiple flows
+Imagine you're building Immich. You're a photo app. Your job is photos: face recognition, albums, sharing, mobile sync, ML tagging. That's a full-time problem on its own.
 
-Measure:
+Then one day a user says: "I want to access my photos from my phone when I'm not at home."
 
-```text
-A → B
-4 flows
-8 flows
-16 flows
-```
+Now you have to answer a question that has nothing to do with photos:
 
-This tests whether the bottleneck behaves differently with multiple flows.
+· How does the phone find the server? The IP changes. The router blocks inbound traffic. The user is on CGNAT.
+· How do we authenticate the phone? An account? A device token? A QR code?
+· How do we authorize it? Does everyone in the family have the same access? Can a phone upload but not delete?
+· What if the user's server goes down for a week? Do we cache the last known location?
+· What if the user changes ISPs? Does the pairing survive?
+· How do we handle NAT traversal?
+· What if the network blocks peer-to-peer? Do we need a relay? Who runs it?
+· How do we encrypt the traffic? Do we use a TLS certificate we can't have? Do we build our own?
 
-## Test C — One relay
+Every one of these questions is a real, hard problem. Every one of them has a different answer depending on who's asking. And every one of them is completely orthogonal to "how should photos be organized."
 
-```text
-A → Relay → B
-```
+This is the moment most self-hosted projects start making bad decisions.
 
-Compare with direct.
+The three bad decisions every project makes
 
-## Test D — Multiple relays
+Option 1: Use a central account system. "Just sign up for our cloud, and we'll handle connectivity through our servers." Now you're operating a cloud service. You're responsible for uptime, for user data, for abuse, for GDPR, for support. Congratulations — you've stopped being a photo app and become an infrastructure company. This is what Immich's paid cloud tier does, and it's a real burden that most projects can't afford.
 
-```text
-A → Relay A → B
-A → Relay B → B
-A → Relay C → B
-```
+Option 2: Tell users to run Tailscale. "Just install Tailscale and point the app at the local IP." This works, technically. But now every user of your app has to know what Tailscale is, has to make an account with a company, has to install a second piece of software, and has to understand that the app only works if that other thing is running. It's a support burden and an adoption barrier, and it makes your app's documentation depend on a third party you don't control.
 
-Measure aggregate throughput.
+Option 3: Roll your own. "We'll build a custom tunnel between the mobile app and the server." This is what a lot of projects attempt, and it's the worst option. You end up reimplementing identity, authorization, discovery, NAT traversal, relays, revocation, and every edge case, badly, with a small team, and you ship security bugs because you're a photo app team, not a networking team.
 
-## Test E — Diverse relays
+Every self-hosted app eventually picks one of these three, and all three are bad for different reasons.
 
-Choose relays with:
+What Mesh changes
 
-* different ISPs
-* different ASNs
-* different geographic locations
+Mesh is a protocol that lets an app say: "I don't need to solve this. Somebody else already did."
 
-Compare against relays sharing an upstream.
+Instead of the app building or renting connectivity infrastructure, the app talks to a local mesh agent running on the user's device. The agent handles:
 
-## Test F — Adaptive scheduler
+· Identity — who is this user, who is this device?
+· Pairing — how did this phone first connect to this server?
+· Discovery — where is the server right now?
+· NAT traversal — how do we get through the router?
+· Relay fallback — what if direct connection fails?
+· Authorization — is this phone allowed to upload? To delete?
+· Revocation — what if the user loses this phone?
+· Freshness — is the authorization still current?
 
-Allow the endpoint to dynamically change path weights.
+The app asks the agent one question: "Give me a connection to Alice's Immich server." The agent answers with a local URL. The app treats that URL like any other local service. It doesn't know or care whether the connection is going over LAN, direct internet, or a relay.
 
-Measure:
+This means the app doesn't have to:
 
-* aggregate throughput
-* stability
-* reordering
-* recovery after path failure
+· Know about NAT. The agent handles it.
+· Know about relays. The agent handles it.
+· Know about certificates. The agent handles mutual authentication.
+· Know about pairing. The agent handles the QR code / code exchange.
+· Know about revocation. The agent handles it.
+· Know about offline state. The agent handles leases.
+· Know about key rotation. The agent handles it.
 
-## Test G — Direct + relay
+The app just uses a URL. That's it.
 
-Compare:
+Why this matters more than it sounds
 
-```text
-direct only
-```
+The immediate benefit is that apps get a whole category of functionality for free. But there's a larger structural benefit that's worth naming.
 
-against:
+Right now, every self-hosted app reinvents the same connectivity layer, badly. Immich has its own sharing. Jellyfin has its own remote access. Home Assistant has its own Nabu Casa cloud. Nextcloud has its own federation. Syncthing has its own relay infrastructure. Paperless, PhotoPrism, Vaultwarden, Gitea, and dozens of others each have a partial answer to "how do I let users reach this remotely."
 
-```text
-direct + relay
-```
+Every one of these is a different implementation of the same concepts:
 
-This determines whether the relay adds useful capacity even when direct connectivity exists.
+· Identity
+· Pairing
+· Authorization
+· Discovery
+· NAT traversal
+· Relay
+· Revocation
 
----
+And every one of them is a separate attack surface, a separate maintenance burden, a separate documentation problem, and a separate support queue.
 
-# 36. Metrics That Matter
+Mesh says: this is a shared problem. It should have one shared answer. The app should consume the shared answer, not reinvent it.
 
-Future experiments should measure more than average throughput.
+The analogy is to what happened with TLS. Twenty years ago, every app built its own encryption. Some used SSL, some used a custom protocol, some used nothing. Today, every app links against a TLS library and gets the same audited, correct implementation for free. Nobody writes their own crypto anymore, and the whole ecosystem is more secure as a result.
 
-Useful metrics include:
+Mesh wants to do for device identity and connectivity what TLS did for transport security. It's a shared, audited, correct primitive that apps consume instead of reinventing.
 
-* aggregate throughput
-* per-path throughput
-* RTT
-* jitter
-* packet loss
-* packet reordering
-* retransmissions
-* congestion-window behavior
-* path availability
-* time to failover
-* CPU utilization
-* memory utilization
-* packets per second
-* concurrent sessions
-* relay bandwidth utilization
-* energy consumption
-* storage writes
+The specific advantages for a project like Immich
 
-For community nodes, also measure:
+Concretely, here's what Immich gets from adopting Mesh instead of building its own:
 
-* uptime
-* network diversity
-* geographic diversity
-* ISP/ASN diversity
+No cloud dependency. Immich doesn't have to run a service to make remote access work. Users install a mesh agent, pair their phone, and the phone reaches the server. Immich never sees a byte of coordination traffic.
 
----
+No account system. Immich doesn't have to manage user accounts at the network layer. The mesh agent handles identity. Immich can still have its own user accounts for the application — Alice vs. Bob vs. Guest — but not for the network. Those are different problems and separating them is a good thing.
 
-# 37. Architectural Placement
+No NAT traversal code. This is a huge one. NAT traversal is genuinely hard: STUN, ICE, hole punching, TURN fallback, IPv6 reachability, CGNAT handling, symmetric NAT detection, port prediction. Every app that tries this either does it wrong or invests a huge amount of engineering. Immich gets it for free.
 
-The resulting architecture should remain layered.
+No relay infrastructure. If direct connectivity fails, the mesh agent falls back to a relay. Immich doesn't have to run one.
 
-```text
-Application
-    │
-    ▼
-Mesh Agent
-    │
-    ├── Identity
-    ├── Relationships
-    ├── Authorization
-    ├── Service Identity
-    ├── Reachability
-    └── Path Selection
-             │
-             ├── Direct
-             ├── NAT traversal
-             ├── Relay
-             └── Future multipath
-                    │
-                    ▼
-              Transport
-                    │
-                    ▼
-             Internet / LAN
-```
+No QR code / pairing protocol. Pairing a phone with a server is a subtle cryptographic problem — you need a PAKE, you need to prevent man-in-the-middle, you need to bind the pairing to the actual identities being paired, you need rate limiting. The mesh agent handles this.
 
-The relay is therefore below authorization but above raw packet routing only insofar as Mesh selects it as a resource.
+No revocation. If Alice loses her phone, she revokes the phone's authorization. Immich doesn't have to implement this.
 
----
+No key rotation. If the server's identity key is compromised, the user rotates it. Immich doesn't have to implement this.
 
-# 38. What Belongs in v0.6.1
+No offline-state handling. If the phone is offline for a week, the mesh agent handles whether the authorization is still valid. Immich just sees "connection available" or "connection refused."
 
-The following should remain in the current kernel:
+No cross-platform complexity. The mesh agent has native support for iOS, Android, Linux, macOS, Windows. Immich's mobile app doesn't have to write connectivity code for each platform.
 
-* direct connectivity
-* basic reachability
-* rendezvous
-* basic relay fallback
-* RelayTicket
-* end-to-end protected transport
-* clear relay authority boundary
-* relay resource limits
-* failure semantics
+No security review burden for connectivity. The mesh protocol is a single, audited, versioned specification. Immich doesn't have to defend its own connectivity code against review — there isn't any.
 
-The relay should remain simple.
+No documentation burden. "Install mesh agent, scan this QR code, done." That's the entire remote access documentation for Immich.
 
-No marketplace or sophisticated distributed path scheduler is necessary for the kernel.
+That's a large amount of work Immich doesn't have to do.
 
----
+The specific advantages for a project like Jellyfin
 
-# 39. What Should Be Deferred
+Jellyfin has a slightly different problem, and it's worth naming because it clarifies what Mesh actually provides.
 
-The following should remain future extensions:
+Jellyfin is a media streaming server. Its users want to watch movies and shows from wherever they are: home, work, hotel, parents' house. Jellyfin's security model involves identifying users, granting them access to libraries, and streaming media to them over HTTP.
 
-* relay capability advertisements
-* dynamic capacity exchange
-* path measurement protocol
-* multi-relay PathSet
-* adaptive path scheduling
-* multipath striping
-* redundant transmission
-* FEC
-* ASN-aware path diversity
-* geography-aware path diversity
-* sophisticated relay selection
-* relay reputation
-* relay economics
-* privacy-preserving multi-hop
-* onion routing
-* large-scale community resource markets
+Right now, Jellyfin's remote access story is: "the user has to set up port forwarding, or use a reverse proxy, or install a VPN." None of these are Jellyfin's job. All of them are user-facing friction.
 
-These features should be built on the existing identity/reachability/transport architecture rather than changing the kernel's meaning of identity or authority.
+With Mesh:
+
+· The user installs a mesh agent on the Jellyfin server and on the client.
+· The user pairs them.
+· The Jellyfin client sees the server as a local service.
+· Streaming just works, from anywhere.
+
+But there's a subtlety: Jellyfin's application-level authorization — who can see which libraries, who can admin the server, who can add plugins — remains Jellyfin's problem. Mesh provides network-level identity and authorization. Jellyfin provides application-level authorization. Both are needed, and they're cleanly separated.
+
+This separation is important because it means:
+
+· Jellyfin doesn't have to give up its user model.
+· Jellyfin doesn't have to trust the mesh agent's authorization for application decisions.
+· Jellyfin can use the mesh identity as one input among many.
+
+The mesh agent says "this connection is from a device that is cryptographically authenticated as Alice's phone." Jellyfin decides "Alice's phone is allowed to stream from the Kids library but not the Horror library." Two different problems, two different layers, no confusion.
+
+The general pattern
+
+The general pattern is this: every self-hosted app has the same list of hard connectivity problems, and none of them are the app's actual job.
+
+The app should be excellent at its domain: photos, media, notes, files, home automation, whatever. It should not be excellent at NAT traversal, key management, relay infrastructure, or offline authorization. Those are solved problems that belong in a shared layer.
+
+Mesh is the shared layer.
+
+Once an app integrates with Mesh, it stops carrying connectivity as a burden. It gets:
+
+· Remote access that works out of the box.
+· Pairing UX that users actually understand.
+· Revocation that actually works.
+· Offline state that behaves correctly.
+· Cross-platform support for free.
+· A shared security model that someone else audits.
+
+And it gives up nothing. The app retains its own user model, its own authorization decisions, its own data, its own service. Mesh only handles the parts that aren't the app's responsibility.
+
+The analogy I'd use
+
+Think about what HTTP did for the web. Before HTTP, every application built its own protocol for retrieving documents. After HTTP, applications got a shared, universal protocol, and they focused on what made them different.
+
+Think about what TLS did for encryption. Before TLS, every application built its own crypto. After TLS, applications got a shared, audited primitive, and they focused on what made them different.
+
+Mesh wants to be that for device identity and connectivity. A single shared primitive that every self-hosted app can consume, so that they can spend their engineering effort on the parts of their app that users actually care about.
+
+If it works, a small open-source project in 2028 should be able to say: "remote access works, we use Mesh for that" — the same way a small project today says "encryption works, we use TLS for that."
+
+That's the win. Not just for users, who get better remote access from more apps. But for developers, who get to stop solving the same problem over and over.
 
 ---
 
-# 40. Recommended Future Feature Name
+The 30-second version for an app developer
 
-The original concept was informally called:
+You're building a photo app, not a networking company. But right now you're being forced to build or rent connectivity infrastructure — identity, NAT traversal, relays, revocation, offline state — because otherwise your users can't reach their own server from outside their home. Mesh is a shared protocol that handles all of that. Your app asks a local agent for a connection to Alice's server. You get a local URL. You don't write NAT traversal code, you don't run a relay, you don't manage certificates, you don't implement pairing. You just write your app. That's what TLS did for encryption. That's what Mesh does for connectivity.
 
-> Multipath Relay Striping
+———-
 
-A more general future abstraction may be:
+How commercial projects benefit — the "we offloaded SSO, why not this too" argument
 
-> **Adaptive Path Aggregation**
+The self-hosted story is where Mesh starts, but the commercial story is where it gets interesting. Because commercial projects have already shown they're willing to offload a whole category of functionality to a third party — and they did it for exactly the same reasons that make Mesh useful.
 
-This emphasizes that the objective is not simply striping packets.
+The precedent: how commercial apps offloaded sign-on
 
-It includes:
+If you look at what happened to authentication over the last 15 years, it's a story of progressive delegation.
 
-* path selection
-* path diversity
-* dynamic weighting
-* aggregation
-* failover
-* resilience
-* potentially redundancy
+Phase 1 — roll your own. Every app built its own username/password system. Custom hashing, custom password reset, custom session management, custom password policies, custom everything. This was a support nightmare, a security nightmare, and duplicated across every product in the industry.
 
-A future Mesh endpoint could conceptually expose:
+Phase 2 — use a framework. Apps started using Django's auth, Rails' Devise, Spring Security, passport.js. This was better — you still had your own user database, but at least the crypto was handled by people who knew what they were doing. But you still owned the account, the passwords, the resets, the policy, the compliance.
 
-```text
-PathSet
-    direct
-    relay A
-    relay B
-    relay C
-```
+Phase 3 — offload to an identity provider. Auth0, Okta, Firebase Auth, Cognito, Clerk, Supabase Auth, AWS IAM. The app no longer stores passwords, doesn't handle resets, doesn't manage MFA, doesn't worry about compliance. The app calls an IdP, gets a token, and treats "who is this user" as a solved problem.
 
-and choose among them dynamically.
+Phase 4 — federate to third parties. "Sign in with Google," "Sign in with GitHub," "Sign in with Apple." Now the app doesn't even manage the identity provider — it delegates to a provider the user probably already has an account with. The app gets a token that says "this is [email protected], verified by Google."
+
+The overall trend is unmistakable: every commercial app has progressively decided that user identity is not their problem. They don't want to store passwords. They don't want to manage MFA. They don't want to handle account recovery. They don't want to be the authority on "who is this person."
+
+They've offloaded it because it's expensive, risky, and completely orthogonal to what makes the app valuable.
+
+The same argument applies to Mesh
+
+Mesh says: the same thing should happen for device identity, network authorization, and reachability.
+
+Today, commercial apps handle this themselves. A SaaS file-sharing product builds its own device-approval system. A commercial IoT platform builds its own NAT traversal. A remote-desktop product builds its own relay infrastructure. An on-prem enterprise tool builds its own device trust model.
+
+Every one of them is duplicating the same work, badly, and paying for it in engineering, support, and security.
+
+Mesh says: this is a shared layer. Offload it.
+
+What commercial projects actually gain
+
+1. They stop being network infrastructure companies
+
+A commercial photo-sharing product has to build or buy:
+
+· Device pairing UX
+· Device identity and authentication
+· Access control between devices
+· NAT traversal
+· Relay infrastructure
+· Revocation when a device is lost
+· Offline-state handling
+· Cross-platform support for mobile, desktop, and web
+
+None of this is photography. None of it is a competitive advantage. All of it is a cost center.
+
+When they adopt Mesh, all of that is handled by the mesh agent. The app calls mesh.connect() and gets a local URL. It doesn't know or care how the connection was established.
+
+The engineering savings are large and immediate.
+
+2. They gain portability of trust relationships
+
+This is subtle but commercially important.
+
+Right now, if a company wants to let employees access internal resources, they build a device trust model. When an employee leaves, they revoke access. When the company switches VPN vendors, they migrate or rebuild all of it.
+
+With Mesh, the device identity and relationship are independent of the vendor. If the company switches from one mesh provider to another — or from commercial to self-hosted — the relationships carry forward. Employee offboarding still revokes the right things. New employee onboarding still establishes the right things. The underlying trust graph doesn't have to be rebuilt just because the infrastructure vendor changed.
+
+For enterprises, this is a real strategic advantage: they can negotiate vendor contracts without the vendor's lock-in being the basis of the negotiation.
+
+3. They gain a credible story for BYOD, IoT, and edge
+
+Modern enterprises have a device sprawl problem. Employees' phones, contractors' laptops, IoT devices, edge sensors, remote sites, partner networks. Every one of these is a connectivity problem with a device identity problem underneath it.
+
+Today, most enterprises handle this with:
+
+· MDM for managed devices.
+· An identity provider for users.
+· A VPN for network access.
+· Custom integrations for edge cases.
+
+Mesh gives them a unified model for all of these that's independent of the vendor and works across the entire device population. A contractor's phone can be paired to a specific service and only that service. An edge sensor can be paired to its gateway. An executive's laptop can be paired to the internal wiki. All with the same protocol, all with the same revocation model, all with the same offline semantics.
+
+This is a meaningful improvement over the current patchwork.
+
+4. They gain a shared story with open-source and self-hosted worlds
+
+Here's the interesting one. Commercial SaaS products and self-hosted projects often serve the same customers. Someone uses Nextcloud at home and Dropbox at work. Someone runs Jellyfin at home and uses a commercial streaming product for work-related media.
+
+If both the commercial product and the open-source alternative speak the same Mesh protocol, the user's device relationships are portable between them. A user's phone can be authorized to their home Immich server and to a commercial photo-sharing product they pay for, without the two systems having to coordinate.
+
+This is directly analogous to what happened with "Sign in with Google." A commercial app got the benefit of every user who already had a Google account, without having to build its own identity system for those users.
+
+Mesh gives commercial products the benefit of every user who already has a Mesh identity — from their home server, their NAS, their phone, whatever. The commercial product doesn't have to be the origin of the identity; it just has to accept it.
+
+5. They gain enterprise delegation
+
+This is where it gets commercially interesting for large vendors.
+
+A commercial product that ships Mesh support can say to its enterprise customers: "Device identity and authorization are handled by the mesh protocol. Your existing identity infrastructure — Okta, Entra, your MDM — plugs into this at the policy layer. We don't store your device graph; you do. We don't decide who's authorized; you do."
+
+That's a very strong sales pitch in an enterprise market that has become allergic to vendor lock-in and data residency problems. It's the same reason enterprises demand SAML and SCIM support: they want identity to live in their system, not the vendor's.
+
+Mesh extends that demand from user identity to device identity, which enterprises have wanted for years and haven't had a portable protocol for.
+
+6. They gain a real answer to "what happens if you go out of business?"
+
+Commercial customers, especially enterprise ones, ask this question seriously. "If your company shuts down, what happens to our data? Our devices? Our relationships?"
+
+For most SaaS products, the honest answer is: "You lose everything. You migrate to a new product and start over."
+
+With Mesh, the honest answer is: "Your device identities, your relationships, and your authorization grants are held by your devices. If we shut down, you plug into a different mesh provider and everything keeps working. You migrate your application data separately, but the trust graph is yours."
+
+This is a genuinely stronger answer, and it's the kind of answer that wins enterprise deals in regulated industries.
+
+The commercial framing
+
+Here's how I'd pitch it to a commercial product manager:
+
+You offloaded user authentication to Auth0, Okta, or Google. Why are you still building device authentication, NAT traversal, and revocation infrastructure yourself?
+
+Mesh is the same story, applied to a problem you've been stuck with. Your app calls a local mesh agent, gets an authorized connection, and never thinks about keys, relays, or pairing again.
+
+Your users get remote access that works out of the box. Your engineering team stops maintaining network plumbing. Your enterprise customers get portability of device trust that they've been asking for.
+
+And when you need to sell to the Fortune 500, you can say: "Your identity infrastructure stays yours. We don't own your device graph. We just make it work."
+
+What a commercial vendor actually has to build
+
+Not much. The commercial vendor has to:
+
+1. Install or bundle the mesh agent with their app (or provide installation instructions).
+2. Integrate with the mesh agent's local API — the mesh.connect() call.
+3. Optionally, expose mesh identity to their own application-level authorization (so that "Alice's phone" from the mesh layer can be used in their user model).
+4. Optionally, provide a service binding in their identity document, so the mesh layer knows how their service is identified.
+
+That's it. A few hundred lines of integration code, and the vendor gets:
+
+· Remote access that works from anywhere.
+· Pairing UX they didn't build.
+· Revocation they didn't build.
+· Offline-state handling they didn't build.
+· Cross-platform support they didn't build.
+· A trust-portability story they couldn't build alone.
+· An enterprise sales narrative about not owning their customers' device graph.
+
+The economics are stark. Building this from scratch costs millions and takes years. Adopting Mesh costs weeks and delivers the same functionality — better, actually, because it's protocol-level rather than product-level.
+
+The specific commercial case I'd make
+
+If I were pitching Mesh to a commercial vendor, I'd focus on three things:
+
+1. The immediate engineering savings. "You stop writing NAT traversal code, relay code, pairing code, revocation code. That's a team you don't have to hire."
+
+2. The strategic answer to lock-in anxiety. "Your customers stop worrying about whether you'll exist in five years. Their trust graph is portable. You compete on quality, not on lock-in."
+
+3. The enterprise sales story. "You can tell CISOs: your device identities live with you, not with us. We're a conduit, not a chokepoint."
+
+Those three things, together, are a compelling case for a commercial product to adopt Mesh as a shared layer — even if they have the resources to build something themselves. Because the build-versus-buy calculation tilts heavily toward "share the protocol and compete on top of it."
+
+The analogy to make explicit
+
+The pattern is exactly what happened with TLS. Twenty years ago, every commercial product built its own crypto. They built their own key exchange, their own cipher suites, their own certificate validation. Every vendor had a security team whose job was to reimplement SSL.
+
+Then the industry converged on TLS. Not because anyone was forced to, but because building it yourself was obviously worse. The vendors that adopted TLS early got to market faster, were more secure, and could compete on application features instead of crypto implementations.
+
+Mesh is the same argument for device identity and connectivity. A commercial vendor that adopts Mesh is doing what a commercial vendor in 2005 did when they adopted TLS: taking a shared, audited primitive and moving their engineering effort to the parts of their product that customers actually pay for.
+
+The pitch to commercial projects is: you already offloaded sign-on. Offload this too. It's the same calculation.
+
 
 ---
 
-# 41. Relationship to NAT Traversal
+## Deep Dives (Separate Documents)
 
-The architectural conclusion is especially important:
-
-> **Mesh should not compete with NAT traversal. It should consume it.**
-
-If future Internet infrastructure makes direct connectivity dramatically easier, Mesh becomes better automatically.
-
-If direct connectivity fails, Mesh falls back to relay resources.
-
-If direct connectivity works but is slow, Mesh may eventually choose an alternative path.
-
-Therefore:
-
-```text
-Networking technology improves
-          ↓
-More direct paths succeed
-          ↓
-Mesh uses fewer relays
-          ↓
-Relay remains fallback/resource option
-```
-
-This avoids making relay infrastructure a permanent architectural dependency.
+- **Commercial Model Deep-Dive** → [`../commercial/COMMERCIAL.md`](COMMERCIAL.md) (see Addendum A)
+- **Lineage Analysis** → [`LINEAGE.md`](ADDENDUM_B_LINEAGE.md) (what Grid borrowed from DNS, WireGuard, BitTorrent, Bitcoin, Tailscale, Headscale, Matrix, SSH, IPFS, Kerberos)
 
 ---
 
-# 42. Relationship to Bandwidth Shaping
-
-The protocol should never define its objective as:
-
-> “Defeat ISP throttling.”
-
-That would be too specific and difficult to substantiate.
-
-The technically defensible objective is:
-
-> **Provide path diversity and adaptive connectivity so that endpoints can make better use of independently available network capacity and improve resilience when a particular path is constrained.**
-
-If the cause happens to be:
-
-* per-flow fairness
-* traffic shaping
-* peering
-* routing
-* congestion
-* transport behavior
-
-the mechanism can still work without knowing the cause.
-
----
-
-# 43. The Most Important Open Research Question
-
-The central empirical question is:
-
-> **Can independently operated Mesh relay paths provide materially higher residential-to-residential throughput than a direct path when neither endpoint's aggregate access link is itself saturated?**
-
-If the answer is consistently yes, then the relay network has a second major function beyond NAT fallback:
-
-> **distributed path diversity and capacity aggregation.**
-
-If the answer is generally no, relays remain valuable primarily for:
-
-* reachability
-* NAT/firewall traversal
-* failover
-* availability
-
-Both outcomes are useful.
-
-The experiment determines how important the future multipath feature should become.
-
----
-
-# 44. Overall Architectural Judgment
-
-The conversation ultimately moved through three different interpretations of the relay concept.
-
-### Initial interpretation
-
-> Relays are needed because NAT makes direct connectivity difficult.
-
-### Refined interpretation
-
-> Relays are fallback infrastructure when direct connectivity fails or is undesirable.
-
-### Broader interpretation
-
-> Relays are potentially distributed connectivity resources that can provide alternative paths, resilience, network diversity, and—under the right conditions—aggregate capacity.
-
-The third interpretation is the most interesting, but it should remain a **future extension rather than an assumption baked into the v0.6.1 kernel**.
-
----
-
-# 45. Final Design Position
-
-The current recommended position is:
-
-1. **Direct connectivity is preferred.**
-2. **Mesh must remain transport-neutral.**
-3. **Relays are fallback and path resources, not authorities.**
-4. **Relays should preferably forward end-to-end encrypted traffic without terminating application encryption.**
-5. **Low-power nodes such as Raspberry Pis can meaningfully contribute forwarding capacity.**
-6. **The protocol should advertise capabilities rather than hardware classes.**
-7. **Transient relay utilization should not require persistent storage.**
-8. **Relay capacity should be treated as a replaceable community resource.**
-9. **Network resilience should come from many interchangeable resources rather than a mandatory central relay.**
-10. **Multiple paths can potentially improve throughput when their bottlenecks are sufficiently independent.**
-11. **Multipath cannot overcome an aggregate access-link bottleneck.**
-12. **Torrent behavior provides a useful analogy but is not proof that Mesh multipath will work.**
-13. **MPTCP, MLVPN, OpenMPTCProuter, multipath QUIC, and related systems should be studied rather than reinvented.**
-14. **Adaptive scheduling is preferable to naive round-robin striping.**
-15. **Burst tolerance should be treated as a transport phenomenon, not an ISP-evasion objective.**
-16. **The protocol should not claim that residential ISPs universally throttle P2P.**
-17. **The usefulness of path aggregation should be established experimentally.**
-18. **Privacy and anonymity remain distinct; relays do not automatically provide anonymity.**
-19. **Multipath, FEC, sophisticated path selection, and community resource markets belong in future extensions.**
-20. **v0.6.1 should keep the relay mechanism simple and stable.**
-
-The resulting conceptual model is:
-
-```text
-                 ┌───────────────────────────┐
-                 │       Mesh Agent          │
-                 │                           │
-Application ────►│ Identity / Authorization  │
-                 │ Service / Reachability   │
-                 │ Path Selection            │
-                 └─────────────┬─────────────┘
-                               │
-                ┌──────────────┼──────────────┐
-                │              │              │
-                ▼              ▼              ▼
-             Direct         Relay A        Relay B
-                │              │              │
-                └──────────────┼──────────────┘
-                               │
-                         Service Endpoint
-```
-
-The deeper architectural idea is:
-
-> **Connectivity becomes a composable resource rather than a property owned by a particular vendor, VPN provider, router, or cloud service.**
-
-A Raspberry Pi does not have to be powerful to participate in that system.
-
-It only needs to contribute **something useful**—a little bandwidth, a reachable location, a different ISP, a different ASN, another available path, or another point of resilience.
-
-At scale, many small contributions can become meaningful infrastructure.
-
-That is the strongest case for retaining a relay layer while keeping it deliberately outside the core trust model.
+*End of Design Rationale*

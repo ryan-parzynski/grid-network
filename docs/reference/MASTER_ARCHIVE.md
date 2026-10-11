@@ -1172,7 +1172,6 @@ KeyState {
 }
 ```
 
-Status: `ACTIVE`, `REVOKED`, `SUPERSEDED`, `UNKNOWN`.
 
 ### Relationship state
 

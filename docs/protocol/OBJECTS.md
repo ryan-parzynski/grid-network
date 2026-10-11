@@ -1,7 +1,13 @@
+---
+title: "Grid Network — Object Encoding"
+version: "0.2"
+status: "Draft (§1–§5 complete, §6–§10 pending)"
+depends_on: "PROTOCOL.md v0.6.2"
+---
 # Grid Network — Object Encoding (OBJECTS.md v0.2)
 
-**Status:** §1–§5 complete, §6–§10 pending  
-**Depends on:** PROTOCOL.md v0.6.2  
+**Status:** §1–§5 complete, §6–§10 pending
+**Depends on:** PROTOCOL.md v0.6.2
 **Purpose:** Byte-level encoding and cryptographic constructions for all signed objects
 
 ---

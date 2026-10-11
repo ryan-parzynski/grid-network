@@ -2,8 +2,6 @@ Mesh Identity & Reachability Protocol
 
 Design Document — v0.3
 
-Status: Draft
-Version: 0.3
 Scope: Identity, relationships, authorization, revocation, reachability, and transport integration
 
 ⸻

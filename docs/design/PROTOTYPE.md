@@ -1,4 +1,4 @@
-261004-notdns basic prototype outline 
+261004-notdns basic prototype outline
 
 Yes. And I think the biggest danger now is trying to implement the whole specification because the specification exists.
 
