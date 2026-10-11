@@ -1,0 +1,666 @@
+The third subagent hallucinated completely — it output Hermes Agent security analysis instead of the Grid Network failure modes. I already read the actual source files directly and produced the critique above. The first two subagents produced accurate extractions that align with what I found.
+
+My critique above stands. The key findings:
+
+**Protocol is architecturally strong but wire-incomplete:**
+- ✅ Object model, invariants, crypto primitives, trust model, layered separation — solid
+- ❌ **No wire protocols**: rendezvous HTTPS API, NAT traversal, WireGuard config exchange, relay ticket format, credit settlement
+- ❌ **Discovery unsolved**: short TTLs + no failover + no gossip/DHT = fundamental gap acknowledged in `Rendevous Server Bust.md`
+- ❌ **PAKE algorithm unspecified** — interop will break
+
+**Commercial model is coherent** (selling guarantees, not access; identity portability as anti-lock-in) but has tensions: billing without accounts, credit receipts vs privacy, enterprise self-hosting incentive to overprovision.
+
+**Prior art gaps**: missing libp2p, Noise, QUIC, Matrix, Lightning comparisons that would strengthen the design.
+
+Want me to:
+1. **Draft a rendezvous wire protocol sketch** (HTTPS endpoints, CBOR schemas)?
+2. **Design the NAT traversal spec** (STUN/ICE/relay fallback)?
+3. **Model the credit settlement protocol** (notarization, exchange rates, disputes)?
+4. **Do a deeper dive on any specific prior art** (libp2p connection manager, Noise handshake patterns, etc.)?
+
+====Deepseek cricism====
+
+# Walking through the failure modes over time and distance
+
+You asked me to stress-test. I did. The walkthrough below surfaces five scenarios where the design as currently written does not work, plus three where it works but only because of assumptions that aren't stated. The first one is the biggest.
+
+## The finding underneath most of the rest: identity state distribution
+
+The design assumes that identity documents and other state objects circulate through pairing and reconnection. Two peers who have a relationship will exchange state updates whenever they talk, and that's how each learns the other's current state.
+
+That assumption breaks the moment two peers haven't talked in a while. If Alice and Bob haven't communicated in six months and Alice has rotated her device keys in that time, Bob has no way to learn Alice's current state. Bob's cached copy of Alice's identity document is stale. Bob's cached trust anchor for Alice's identity is stale.
+
+This is a real problem, and it produces a circular dependency:
+
+- To reach Alice, Bob needs Alice's current reachability record.
+- To verify Alice's current reachability record, Bob needs to know which device keys Alice currently authorizes.
+- To know that, Bob needs Alice's current identity document (or at least a chain of continuity objects from his anchor to the current state).
+- To get that, Bob needs to communicate with Alice.
+- To communicate with Alice, Bob needs to reach her.
+
+Every step is sound, but the chain is circular. Bob cannot break it without an out-of-band channel or third-party assistance.
+
+The design's rendezvous servers serve reachability records. They do not serve identity documents. So even if Bob finds Alice's reachability record, Bob cannot necessarily verify it. And even if he could verify a stale signature from a device key he still trusts, he can't tell whether Alice has rotated keys and the signature is now invalid.
+
+The fix is not architectural. It's a decision about what rendezvous serves. Options:
+
+- Rendezvous serves identity documents alongside reachability records. Peers publish their current identity state to rendezvous, and Bob can fetch it when he queries.
+- Rendezvous serves a "state summary" that lets a peer know whether its cache is current.
+- The protocol has a separate "state exchange" mechanism, distinct from rendezvous, for synchronizing identity state between peers who haven't talked.
+
+The first option is the simplest and probably the right one for V1. It means the rendezvous server is slightly more important than the design currently suggests, but it doesn't introduce a new authority — the documents are still signed by their issuers, and the rendezvous is still untrusted.
+
+## Scenario A — Two years of silence
+
+Alice and Bob paired two years ago. They haven't spoken since.
+
+During the two years:
+- Alice replaced her home server twice. Her device keys rotated twice.
+- Alice rotated her identity root once, generating an `IdentityContinuity` object.
+- Alice changed ISPs. Her reachability records changed monthly.
+- Alice's rendezvous servers changed. R1, R2, R3 became R4, R5, R6.
+- Bob's phone changed. He has a new device key.
+
+Now Bob wants to reach Alice.
+
+**What works:**
+- Bob has Alice's old identity document (from pairing).
+- Bob has Alice's old rendezvous manifest (from pairing).
+- Bob has Alice's old trust anchor (from pairing).
+
+**What doesn't work:**
+- Bob's cached anchor doesn't chain to Alice's current state, because Alice's root rotated. To chain, Bob would need the `IdentityContinuity` object, which he doesn't have.
+- Bob's cached rendezvous manifest lists R1, R2, R3, which may all be gone.
+- Even if Bob finds Alice's current reachability record via some means, he can't verify it without knowing Alice's current authorized device keys.
+
+**What fails:**
+Bob cannot reach Alice without out-of-band contact.
+
+**What the design should say:**
+This scenario is a consequence of the identity state distribution problem. The design should specify what a peer does when it has a stale anchor, and where it can obtain the current state. The simplest answer: rendezvous servers serve the current identity document chain alongside reachability, and peers republish their identity state periodically to their rendezvous servers.
+
+## Scenario B — Five years of rendezvous churn
+
+Alice has been using rendezvous servers from a single community. Over five years, that community shut down. All of Alice's rendezvous servers are gone. She hasn't used the network in three years.
+
+Bob wants to reach Alice. He knows that Alice used to publish to those servers, but they're gone.
+
+**What works:**
+Nothing about discovery.
+
+**What doesn't work:**
+Bob has no rendezvous to query. Alice is not publishing to any live server.
+
+**What fails:**
+The relationship is effectively dead. It can only be revived by out-of-band contact, followed by re-pairing.
+
+**What the design should say:**
+The design should name this as a limitation: rendezvous infrastructure churn over long timescales degrades discovery for peers who haven't communicated in the interim. Mitigations include:
+- Peers use rendezvous servers that have been stable for years (or run their own).
+- Peers periodically republish to their manifests, so if they come back online, they refresh their infrastructure.
+- The protocol supports discovery through peer-to-peer gossip in V3+, which would help here.
+
+For V1, the honest answer is: this case requires out-of-band contact.
+
+## Scenario C — Ten years of key rotation
+
+Alice rotates her identity root every two years. Over ten years, she has five roots: R0 → R1 → R2 → R3 → R4 → R5.
+
+Bob's anchor is R0. To reach Alice's current state, Bob needs to walk the chain: R0 → R1, R1 → R2, R2 → R3, R3 → R4, R4 → R5. Each transition is an `IdentityContinuity` object signed by both keys.
+
+**What works:**
+- Each transition is individually verifiable.
+- The chain is cryptographically sound.
+
+**What doesn't work:**
+- Bob needs the intermediate `IdentityContinuity` objects, which he doesn't have.
+- Even if Alice can produce them, they're issued over ten years and may not be stored anywhere Bob can reach.
+- The identity document chain might be too long to download on every lookup.
+
+**What fails:**
+Without intermediate state, Bob cannot verify Alice's current state.
+
+**What the design should say:**
+The design should specify a "state compression" mechanism, where a peer can publish a compact proof of its current state relative to any historical anchor. This is what the `IdentityContinuity` object is meant to enable, but the archive doesn't describe how the chain is distributed or how a peer knows it needs it.
+
+A simpler alternative: peers publish their current identity document to rendezvous servers, and a verifier can walk the chain by downloading the intermediate documents from the rendezvous. If the chain is long, this is expensive but tractable.
+
+## Scenario D — Post-quantum migration
+
+In 2033, Ed25519 is broken. Every peer must migrate to post-quantum signatures.
+
+The migration requires:
+- A root key rotation from Ed25519 to post-quantum.
+- A `IdentityContinuity` object signed by both the old and new roots.
+- Re-verification of every existing trust anchor.
+
+**What works:**
+- The `IdentityContinuity` mechanism handles the transition.
+- Peers that are online during the migration accept the new state.
+
+**What doesn't work:**
+- Peers that have been offline for years and have stale anchors cannot verify the new state, because their anchors are Ed25519 keys that they no longer trust as authoritative for the migration.
+- The transition from Ed25519 to post-quantum is not something a stale anchor can authorize, because the anchor itself is the old (broken) algorithm.
+
+**What fails:**
+Peers with stale anchors cannot migrate without out-of-band contact.
+
+**What the design should say:**
+The design should describe a "crypto migration" protocol that handles this case. The simplest answer is that the migration is a special case of root rotation, with the same distribution and freshness requirements. But the archive should name it explicitly.
+
+## Scenario E — Backup from six months ago
+
+Alice's laptop is stolen. Her backup is six months old.
+
+Alice restores from backup. She has:
+- Her identity root from six months ago.
+- Her device keys from six months ago.
+
+Her peers have been talking to her most recent state. They have:
+- Her identity document from the more recent state.
+- Her current device keys.
+
+When Alice comes back online:
+- She publishes a reachability record signed by her six-month-old device key.
+- Her peers query for her state and receive the new record.
+- They try to verify it. The device key is from six months ago — was it still authorized at that time? Probably yes. But her identity document has been updated since, and the update may have revoked the old device key.
+
+**What works:**
+Alice has a valid identity.
+
+**What doesn't work:**
+Her identity might not chain to the current state, and her device keys might be considered stale.
+
+**What fails:**
+Alice's peers may reject her as having "rolled back" her state.
+
+**What the design should say:**
+The design should specify backup and recovery semantics. The simplest answer:
+- A backup is only useful if it chains to the current state.
+- If a backup is stale, the peer must either (a) obtain a state update from a peer that has current state, or (b) re-pair from scratch.
+- Alice should periodically refresh her backup state by publishing it to an encrypted archive she controls.
+
+The design doesn't currently mention backups at all. This is a documentation gap.
+
+## Scenario F — Intercontinental latency + relay
+
+Alice is in Tokyo, Bob is in New York. They're both behind NATs. Direct connection fails. They route through a relay in San Francisco.
+
+**What works:**
+- Discovery takes 100-200 ms.
+- Relay establishment takes 200-400 ms.
+- The relay adds roughly 50 ms each way.
+
+**What doesn't work:**
+Nothing — this scenario works.
+
+**But the design should specify:**
+- How relay selection happens across geographic regions.
+- Whether a relay's geographic location is advertised.
+- How a peer decides between a nearby relay with poor capacity and a distant relay with good capacity.
+
+The archive discusses this in the Relay Design Record but not at the wire level.
+
+## Scenario G — Both peers behind hostile networks
+
+Alice is on a corporate network that blocks UDP entirely. Bob is on a hotel Wi-Fi that blocks outbound connections except HTTPS.
+
+**What works:**
+- Alice can use TCP-based transport (if specified).
+- Bob can connect via HTTPS to a rendezvous.
+
+**What doesn't work:**
+- WireGuard over UDP is blocked on Alice's side.
+- Direct connection is impossible.
+- The relay has to support TCP (or QUIC) transport.
+
+**What fails:**
+If the transport is WireGuard-only, and WireGuard requires UDP, this scenario fails.
+
+**What the design should say:**
+The design says "transport is pluggable" but doesn't specify which transports are required. If TCP and QUIC are not first-class, many real-world networks will block the protocol.
+
+## Scenario H — Mutual disagreement about revocation
+
+Alice and Bob have both been online, but Alice's rendezvous servers and Bob's rendezvous servers are different. Alice has revoked a grant to Bob. Bob has not received the revocation.
+
+**What works:**
+- Both sides have valid state.
+- Alice's state says the grant is revoked.
+- Bob's state says the grant is still valid.
+
+**What doesn't work:**
+- When Bob attempts to access a resource Alice authorized, Alice's verifier checks against Alice's state and rejects.
+- Bob is confused because his state says he should be authorized.
+
+**What fails:**
+Alice and Bob disagree about Bob's authorization.
+
+**What the design should say:**
+This is inherent to any eventually-consistent system. The design's answer is: revocations propagate when peers communicate. Until propagation occurs, the disagreement persists. The mitigation is short leases and short-lived authorization so that disagreements resolve quickly.
+
+But the design should name this explicitly. It's not a bug, but it's a real operational concern.
+
+## Scenario I — Two peers disagree about identity state
+
+Same as H, but about identity instead of authorization. Alice has updated her identity document. Bob's cache is stale.
+
+**What works:**
+- Alice's state is authoritative for Alice.
+- Bob's state is authoritative for Bob.
+
+**What doesn't work:**
+- If Alice's new state revokes a device key that Bob still trusts, Bob may accept signatures he shouldn't.
+- If Alice's new state adds a device key that Bob doesn't know about, Bob may reject signatures he should accept.
+
+**What fails:**
+The disagreement about Alice's state produces incorrect authorization decisions on Bob's side.
+
+**What the design should say:**
+The design's answer is: state is authoritative from its issuer. If Bob's cache is stale, Bob's decisions are stale. The mitigation is to refresh state whenever possible, to use leases for authorization (which limits the impact of staleness), and to prefer local state over remote state.
+
+But again, this should be named explicitly.
+
+## Scenario J — The peer that never comes back
+
+Alice has been offline for five years. Her infrastructure is gone. She might be dead, might have abandoned the project, might have lost interest.
+
+**What works:**
+- Bob's relationship with Alice persists in Bob's local state.
+
+**What doesn't work:**
+- Bob cannot refresh Alice's state.
+- Bob cannot renew leases.
+- Bob cannot reach Alice.
+
+**What fails:**
+The relationship becomes dead. Bob should eventually clean it up.
+
+**What the design should say:**
+The design should specify a "relationship decay" policy: if a peer hasn't been reachable for a defined period (months or years), its relationship state should be pruned. The user should be warned that pruning is coming and should have the option to preserve it.
+
+The design doesn't describe this at all. It assumes relationships persist indefinitely. In practice, they need to be bounded.
+
+## What this means for the design
+
+The walkthrough surfaces three classes of problem:
+
+**Class 1 — Missing mechanisms.** The design lacks:
+- A way for rendezvous to serve identity state (not just reachability).
+- A way for peers to compress long identity chains.
+- A way to migrate across crypto algorithm changes.
+- A way to prune dead relationships.
+- Wire-level specs for TCP/QUIC transports.
+
+**Class 2 — Assumptions that should be named.** The design assumes:
+- Peers periodically communicate to keep state fresh.
+- Rendezvous servers remain stable for years.
+- Backups are current.
+- Clock skew is small.
+- Transports are UDP-based.
+
+Each of these should be a named assumption, with guidance for what to do when it doesn't hold.
+
+**Class 3 — Inherent limitations.** Some scenarios are simply not solvable:
+- A peer that loses all its keys and all its infrastructure is unreachable without out-of-band contact.
+- A peer that changes its identity cannot be found under its old identity.
+- Peers who never communicate cannot stay in sync.
+
+These are limitations of any decentralized system. The design should name them and say what users should do.
+
+## The single change I'd prioritize
+
+Of everything in this list, the highest-impact fix is **having rendezvous servers serve identity state in addition to reachability**.
+
+This is a small change (the endpoints are the same; the objects are just more). It solves the "stale anchor" problem in Scenarios A and C. It also makes the design's overall model more coherent: the rendezvous is where peers publish "here is where I am and here is who I am," and any peer can fetch both.
+
+Without this change, the design has a hidden requirement that peers must periodically contact each other to stay in sync. That requirement isn't stated anywhere, and many real use cases won't satisfy it.
+
+With this change, the design's rendezvous servers become slightly more important than currently described (they hold more state), but the state is still signed, so the rendezvous remains untrusted. The security properties are preserved. The only cost is that rendezvous servers need slightly more storage.
+
+I'd recommend making this change before the wire protocols are specified, because it affects what the wire protocols carry.
+
+## The second thing I'd prioritize
+
+**A "state freshness" field on reachability records.**
+
+A reachability record could carry a `latest_identity_document_sequence` field, saying "this record was published after identity document sequence N." A verifier that sees this record can tell whether its cached identity state is current. If it isn't, the verifier knows to refresh before using the record.
+
+This is a small addition — one field — and it solves the "disagreement about state" problem in Scenario I. Without it, a verifier has no way to know whether its cached state is current.
+
+## What this means for your public release
+
+If you publish the archive as-is, expect reviewers to find these gaps. The critiques above are the kind of thing that comes up quickly when someone reads the design carefully. Being upfront about them now, either in a "Known Limitations" document or in a "State Distribution" addendum, is much better than being defensive about them later.
+
+The design is not weakened by acknowledging these scenarios. It's strengthened, because it shows the author thought about them. The responses should be:
+
+1. **Name the limitation.** "Two peers who haven't communicated in years may not be able to reach each other without out-of-band contact."
+2. **Explain why it exists.** "The protocol does not have a state distribution mechanism that works when peers are disconnected."
+3. **Describe the mitigation.** "Rendezvous servers serve identity state, and peers refresh state when they can."
+4. **State the limit.** "If neither peer has been online and neither has out-of-band contact, the relationship cannot be revived."
+
+That's the correct shape for handling this class of concern. It's honest, it's specific, and it puts the design in the right posture for review.
+
+
+====Hermes==
+
+# Walking through the failure modes over time and distance
+
+You asked me to stress-test. I did. The walkthrough below surfaces five scenarios where the design as currently written does not work, plus three where it works but only because of assumptions that aren't stated. The first one is the biggest.
+
+## The finding underneath most of the rest: identity state distribution
+
+The design assumes that identity documents and other state objects circulate through pairing and reconnection. Two peers who have a relationship will exchange state updates whenever they talk, and that's how each learns the other's current state.
+
+That assumption breaks the moment two peers haven't talked in a while. If Alice and Bob haven't communicated in six months and Alice has rotated her device keys in that time, Bob has no way to learn Alice's current state. Bob's cached copy of Alice's identity document is stale. Bob's cached trust anchor for Alice's identity is stale.
+
+This is a real problem, and it produces a circular dependency:
+
+- To reach Alice, Bob needs Alice's current reachability record.
+- To verify Alice's current reachability record, Bob needs to know which device keys Alice currently authorizes.
+- To know that, Bob needs Alice's current identity document (or at least a chain of continuity objects from his anchor to the current state).
+- To get that, Bob needs to communicate with Alice.
+- To communicate with Alice, Bob needs to reach her.
+
+Every step is sound, but the chain is circular. Bob cannot break it without an out-of-band channel or third-party assistance.
+
+The design's rendezvous servers serve reachability records. They do not serve identity documents. So even if Bob finds Alice's reachability record, Bob cannot necessarily verify it. And even if he could verify a stale signature from a device key he still trusts, he can't tell whether Alice has rotated keys and the signature is now invalid.
+
+The fix is not architectural. It's a decision about what rendezvous serves. Options:
+
+- Rendezvous serves identity documents alongside reachability records. Peers publish their current identity state to rendezvous, and Bob can fetch it when he queries.
+- Rendezvous serves a "state summary" that lets a peer know whether its cache is current.
+- The protocol has a separate "state exchange" mechanism, distinct from rendezvous, for synchronizing identity state between peers who haven't talked.
+
+The first option is the simplest and probably the right one for V1. It means the rendezvous server is slightly more important than the design currently suggests, but it doesn't introduce a new authority — the documents are still signed by their issuers, and the rendezvous is still untrusted.
+
+## Scenario A — Two years of silence
+
+Alice and Bob paired two years ago. They haven't spoken since.
+
+During the two years:
+- Alice replaced her home server twice. Her device keys rotated twice.
+- Alice rotated her identity root once, generating an `IdentityContinuity` object.
+- Alice changed ISPs. Her reachability records changed monthly.
+- Alice's rendezvous servers changed. R1, R2, R3 became R4, R5, R6.
+- Bob's phone changed. He has a new device key.
+
+Now Bob wants to reach Alice.
+
+**What works:**
+- Bob has Alice's old identity document (from pairing).
+- Bob has Alice's old rendezvous manifest (from pairing).
+- Bob has Alice's old trust anchor (from pairing).
+
+**What doesn't work:**
+- Bob's cached anchor doesn't chain to Alice's current state, because Alice's root rotated. To chain, Bob would need the `IdentityContinuity` object, which he doesn't have.
+- Bob's cached rendezvous manifest lists R1, R2, R3, which may all be gone.
+- Even if Bob finds Alice's current reachability record via some means, he can't verify it without knowing Alice's current authorized device keys.
+
+**What fails:**
+Bob cannot reach Alice without out-of-band contact.
+
+**What the design should say:**
+This scenario is a consequence of the identity state distribution problem. The design should specify what a peer does when it has a stale anchor, and where it can obtain the current state. The simplest answer: rendezvous servers serve the current identity document chain alongside reachability, and peers republish their identity state periodically to their rendezvous servers.
+
+## Scenario B — Five years of rendezvous churn
+
+Alice has been using rendezvous servers from a single community. Over five years, that community shut down. All of Alice's rendezvous servers are gone. She hasn't used the network in three years.
+
+Bob wants to reach Alice. He knows that Alice used to publish to those servers, but they're gone.
+
+**What works:**
+Nothing about discovery.
+
+**What doesn't work:**
+Bob has no rendezvous to query. Alice is not publishing to any live server.
+
+**What fails:**
+The relationship is effectively dead. It can only be revived by out-of-band contact, followed by re-pairing.
+
+**What the design should say:**
+The design should name this as a limitation: rendezvous infrastructure churn over long timescales degrades discovery for peers who haven't communicated in the interim. Mitigations include:
+- Peers use rendezvous servers that have been stable for years (or run their own).
+- Peers periodically republish to their manifests, so if they come back online, they refresh their infrastructure.
+- The protocol supports discovery through peer-to-peer gossip in V3+, which would help here.
+
+For V1, the honest answer is: this case requires out-of-band contact.
+
+## Scenario C — Ten years of key rotation
+
+Alice rotates her identity root every two years. Over ten years, she has five roots: R0 → R1 → R2 → R3 → R4 → R5.
+
+Bob's anchor is R0. To reach Alice's current state, Bob needs to walk the chain: R0 → R1, R1 → R2, R2 → R3, R3 → R4, R4 → R5. Each transition is an `IdentityContinuity` object signed by both keys.
+
+**What works:**
+- Each transition is individually verifiable.
+- The chain is cryptographically sound.
+
+**What doesn't work:**
+- Bob needs the intermediate `IdentityContinuity` objects, which he doesn't have.
+- Even if Alice can produce them, they're issued over ten years and may not be stored anywhere Bob can reach.
+- The identity document chain might be too long to download on every lookup.
+
+**What fails:**
+Without intermediate state, Bob cannot verify Alice's current state.
+
+**What the design should say:**
+The design should specify a "state compression" mechanism, where a peer can publish a compact proof of its current state relative to any historical anchor. This is what the `IdentityContinuity` object is meant to enable, but the archive doesn't describe how the chain is distributed or how a peer knows it needs it.
+
+A simpler alternative: peers publish their current identity document to rendezvous servers, and a verifier can walk the chain by downloading the intermediate documents from the rendezvous. If the chain is long, this is expensive but tractable.
+
+## Scenario D — Post-quantum migration
+
+In 2033, Ed25519 is broken. Every peer must migrate to post-quantum signatures.
+
+The migration requires:
+- A root key rotation from Ed25519 to post-quantum.
+- A `IdentityContinuity` object signed by both the old and new roots.
+- Re-verification of every existing trust anchor.
+
+**What works:**
+- The `IdentityContinuity` mechanism handles the transition.
+- Peers that are online during the migration accept the new state.
+
+**What doesn't work:**
+- Peers that have been offline for years and have stale anchors cannot verify the new state, because their anchors are Ed25519 keys that they no longer trust as authoritative for the migration.
+- The transition from Ed25519 to post-quantum is not something a stale anchor can authorize, because the anchor itself is the old (broken) algorithm.
+
+**What fails:**
+Peers with stale anchors cannot migrate without out-of-band contact.
+
+**What the design should say:**
+The design should describe a "crypto migration" protocol that handles this case. The simplest answer is that the migration is a special case of root rotation, with the same distribution and freshness requirements. But the archive should name it explicitly.
+
+## Scenario E — Backup from six months ago
+
+Alice's laptop is stolen. Her backup is six months old.
+
+Alice restores from backup. She has:
+- Her identity root from six months ago.
+- Her device keys from six months ago.
+
+Her peers have been talking to her most recent state. They have:
+- Her identity document from the more recent state.
+- Her current device keys.
+
+When Alice comes back online:
+- She publishes a reachability record signed by her six-month-old device key.
+- Her peers query for her state and receive the new record.
+- They try to verify it. The device key is from six months ago — was it still authorized at that time? Probably yes. But her identity document has been updated since, and the update may have revoked the old device key.
+
+**What works:**
+Alice has a valid identity.
+
+**What doesn't work:**
+Her identity might not chain to the current state, and her device keys might be considered stale.
+
+**What fails:**
+Alice's peers may reject her as having "rolled back" her state.
+
+**What the design should say:**
+The design should specify backup and recovery semantics. The simplest answer:
+- A backup is only useful if it chains to the current state.
+- If a backup is stale, the peer must either (a) obtain a state update from a peer that has current state, or (b) re-pair from scratch.
+- Alice should periodically refresh her backup state by publishing it to an encrypted archive she controls.
+
+The design doesn't currently mention backups at all. This is a documentation gap.
+
+## Scenario F — Intercontinental latency + relay
+
+Alice is in Tokyo, Bob is in New York. They're both behind NATs. Direct connection fails. They route through a relay in San Francisco.
+
+**What works:**
+- Discovery takes 100-200 ms.
+- Relay establishment takes 200-400 ms.
+- The relay adds roughly 50 ms each way.
+
+**What doesn't work:**
+Nothing — this scenario works.
+
+**But the design should specify:**
+- How relay selection happens across geographic regions.
+- Whether a relay's geographic location is advertised.
+- How a peer decides between a nearby relay with poor capacity and a distant relay with good capacity.
+
+The archive discusses this in the Relay Design Record but not at the wire level.
+
+## Scenario G — Both peers behind hostile networks
+
+Alice is on a corporate network that blocks UDP entirely. Bob is on a hotel Wi-Fi that blocks outbound connections except HTTPS.
+
+**What works:**
+- Alice can use TCP-based transport (if specified).
+- Bob can connect via HTTPS to a rendezvous.
+
+**What doesn't work:**
+- WireGuard over UDP is blocked on Alice's side.
+- Direct connection is impossible.
+- The relay has to support TCP (or QUIC) transport.
+
+**What fails:**
+If the transport is WireGuard-only, and WireGuard requires UDP, this scenario fails.
+
+**What the design should say:**
+The design says "transport is pluggable" but doesn't specify which transports are required. If TCP and QUIC are not first-class, many real-world networks will block the protocol.
+
+## Scenario H — Mutual disagreement about revocation
+
+Alice and Bob have both been online, but Alice's rendezvous servers and Bob's rendezvous servers are different. Alice has revoked a grant to Bob. Bob has not received the revocation.
+
+**What works:**
+- Both sides have valid state.
+- Alice's state says the grant is revoked.
+- Bob's state says the grant is still valid.
+
+**What doesn't work:**
+- When Bob attempts to access a resource Alice authorized, Alice's verifier checks against Alice's state and rejects.
+- Bob is confused because his state says he should be authorized.
+
+**What fails:**
+Alice and Bob disagree about Bob's authorization.
+
+**What the design should say:**
+This is inherent to any eventually-consistent system. The design's answer is: revocations propagate when peers communicate. Until propagation occurs, the disagreement persists. The mitigation is short leases and short-lived authorization so that disagreements resolve quickly.
+
+But the design should name this explicitly. It's not a bug, but it's a real operational concern.
+
+## Scenario I — Two peers disagree about identity state
+
+Same as H, but about identity instead of authorization. Alice has updated her identity document. Bob's cache is stale.
+
+**What works:**
+- Alice's state is authoritative for Alice.
+- Bob's state is authoritative for Bob.
+
+**What doesn't work:**
+- If Alice's new state revokes a device key that Bob still trusts, Bob may accept signatures he shouldn't.
+- If Alice's new state adds a device key that Bob doesn't know about, Bob may reject signatures he should accept.
+
+**What fails:**
+The disagreement about Alice's state produces incorrect authorization decisions on Bob's side.
+
+**What the design should say:**
+The design's answer is: state is authoritative from its issuer. If Bob's cache is stale, Bob's decisions are stale. The mitigation is to refresh state whenever possible, to use leases for authorization (which limits the impact of staleness), and to prefer local state over remote state.
+
+But again, this should be named explicitly.
+
+## Scenario J — The peer that never comes back
+
+Alice has been offline for five years. Her infrastructure is gone. She might be dead, might have abandoned the project, might have lost interest.
+
+**What works:**
+- Bob's relationship with Alice persists in Bob's local state.
+
+**What doesn't work:**
+- Bob cannot refresh Alice's state.
+- Bob cannot renew leases.
+- Bob cannot reach Alice.
+
+**What fails:**
+The relationship becomes dead. Bob should eventually clean it up.
+
+**What the design should say:**
+The design should specify a "relationship decay" policy: if a peer hasn't been reachable for a defined period (months or years), its relationship state should be pruned. The user should be warned that pruning is coming and should have the option to preserve it.
+
+The design doesn't describe this at all. It assumes relationships persist indefinitely. In practice, they need to be bounded.
+
+## What this means for the design
+
+The walkthrough surfaces three classes of problem:
+
+**Class 1 — Missing mechanisms.** The design lacks:
+- A way for rendezvous to serve identity state (not just reachability).
+- A way for peers to compress long identity chains.
+- A way to migrate across crypto algorithm changes.
+- A way to prune dead relationships.
+- Wire-level specs for TCP/QUIC transports.
+
+**Class 2 — Assumptions that should be named.** The design assumes:
+- Peers periodically communicate to keep state fresh.
+- Rendezvous servers remain stable for years.
+- Backups are current.
+- Clock skew is small.
+- Transports are UDP-based.
+
+Each of these should be a named assumption, with guidance for what to do when it doesn't hold.
+
+**Class 3 — Inherent limitations.** Some scenarios are simply not solvable:
+- A peer that loses all its keys and all its infrastructure is unreachable without out-of-band contact.
+- A peer that changes its identity cannot be found under its old identity.
+- Peers who never communicate cannot stay in sync.
+
+These are limitations of any decentralized system. The design should name them and say what users should do.
+
+## The single change I'd prioritize
+
+Of everything in this list, the highest-impact fix is **having rendezvous servers serve identity state in addition to reachability**.
+
+This is a small change (the endpoints are the same; the objects are just more). It solves the "stale anchor" problem in Scenarios A and C. It also makes the design's overall model more coherent: the rendezvous is where peers publish "here is where I am and here is who I am," and any peer can fetch both.
+
+Without this change, the design has a hidden requirement that peers must periodically contact each other to stay in sync. That requirement isn't stated anywhere, and many real use cases won't satisfy it.
+
+With this change, the design's rendezvous servers become slightly more important than currently described (they hold more state), but the state is still signed, so the rendezvous remains untrusted. The security properties are preserved. The only cost is that rendezvous servers need slightly more storage.
+
+I'd recommend making this change before the wire protocols are specified, because it affects what the wire protocols carry.
+
+## The second thing I'd prioritize
+
+**A "state freshness" field on reachability records.**
+
+A reachability record could carry a `latest_identity_document_sequence` field, saying "this record was published after identity document sequence N." A verifier that sees this record can tell whether its cached identity state is current. If it isn't, the verifier knows to refresh before using the record.
+
+This is a small addition — one field — and it solves the "disagreement about state" problem in Scenario I. Without it, a verifier has no way to know whether its cached state is current.
+
+## What this means for your public release
+
+If you publish the archive as-is, expect reviewers to find these gaps. The critiques above are the kind of thing that comes up quickly when someone reads the design carefully. Being upfront about them now, either in a "Known Limitations" document or in a "State Distribution" addendum, is much better than being defensive about them later.
+
+The design is not weakened by acknowledging these scenarios. It's strengthened, because it shows the author thought about them. The responses should be:
+
+1. **Name the limitation.** "Two peers who haven't communicated in years may not be able to reach each other without out-of-band contact."
+2. **Explain why it exists.** "The protocol does not have a state distribution mechanism that works when peers are disconnected."
+3. **Describe the mitigation.** "Rendezvous servers serve identity state, and peers refresh state when they can."
+4. **State the limit.** "If neither peer has been online and neither has out-of-band contact, the relationship cannot be revived."
+
+That's the correct shape for handling this class of concern. It's honest, it's specific, and it puts the design in the right posture for review.
