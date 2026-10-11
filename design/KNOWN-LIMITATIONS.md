@@ -158,3 +158,50 @@ This is an operational consideration, not a protocol failure mode. It is documen
 When reviewing the Grid Network design, do not treat these limitations as bugs to be fixed. They are **acknowledged boundaries** of what the protocol can achieve. The design's strength is that it names these boundaries honestly, provides mitigations where possible, and does not pretend to solve problems that cannot be solved.
 
 > "The design is not weakened by acknowledging these scenarios. It's strengthened, because it shows the author thought about them." — Deepseek stress-test review, 2026-10-10
+
+---
+
+## Future Work
+
+### What It Does Well
+
+**Opaque peer IDs rather than self-certifying IDs.** Peer identity is a principal identifier bound to a signing key through an explicit authorization record, not derived from the key itself. This allows key rotation without identity change, and supports delegation without re-deriving IDs.
+
+**Per-principal relationship assertions.** Authorization is expressed as assertions issued by principals about their own state (device posture, key bindings, revocation decisions), not as permissions granted by a central authority. Each relationship carries its own signed state.
+
+**Effective_sequence on revocation.** Revocation carries an explicit sequence number that orders it relative to other state changes, enabling verifiers to reason about temporal precedence without relying on wall-clock time.
+
+**Separation of lease validity from freshness.** A lease (rendezvous ticket, relay capability, key authorization) has a validity window; freshness is a separate property evaluated by the verifier based on observation recency. This avoids conflating expiration with staleness.
+
+**Revocation as state, not just an event.** Revocation is recorded in the identity continuity chain as a signed object with `effective_sequence`, making it queryable and auditable. A revoked key leaves a verifiable trace rather than disappearing.
+
+**Infrastructure never being authoritative.** Rendezvous, relay, and directory services are replaceable infrastructure. They carry signed state; they do not *become* the source of truth. Authority remains with the signing principals.
+
+**Canonical CBOR with domain separation.** All signed objects use a deterministic CBOR profile (RFC 8949 §4.2.3 length-first map ordering, lexicographic set-element ordering, explicit null/absent semantics) with domain-separated tags per object type. This eliminates encoding ambiguity as a source of verification divergence.
+
+---
+
+### What Remains To Be Done
+
+| Area | Open Work |
+|------|-----------|
+| **Identity sequence across root rotation** | Defining how `identity_sequence` advances and is verified when a principal rotates its root key; handling competing successor roots; migration path for existing implementations |
+| **Reboot / suspend / restore behavior** | Specifying how a peer reconstructs its continuity chain and lease state after process restart; handling clock-skew and monotonicity gaps; defining what state must be durably persisted |
+| **Transport-to-identity binding** | Binding rendezvous/relay connections to the identity continuity chain; preventing connection hijacking when transport changes; defining the wire-level binding mechanism |
+| **Revocation ordering** | Resolving concurrent revocations of the same key; defining the fork-resolution rule when two revocation objects claim the same `effective_sequence` |
+| **Delayed observation / freshness rules** | Formalizing how verifiers handle objects received significantly after their validity window; defining freshness thresholds and grace periods without central time authority |
+| **PAKE selection** | Choosing between SPAKE2 and CPace for the pairing protocol; this blocks wire protocol and test vector completion |
+| **Wire protocol / relay behavior** | Specifying the relay wire format, ticket presentation flow, rendezvous API endpoints, and relay capability advertisement semantics |
+| **Conformance scenarios and test vectors** | Producing the 50+ normative test vectors blocked on OBJECTS.md §§6–10 schema completion and PAKE selection |
+
+---
+
+### Why This Matters
+
+The unresolved items do not negate the core design; they define the boundary between **review-ready** and **implementation-ready**. The protocol's central commitments — identity as a verifiable property, coordination as a service provided by signed state, infrastructure as replaceable substrate — are internally consistent and documented. The open work consists of: (1) completing schema definitions that the architecture already anticipates, (2) selecting among known alternatives for PAKE and wire encoding, and (3) specifying behavior for edge cases that the model correctly identifies but does not yet prescribe. Each item is a bounded design decision, not a fundamental gap.
+
+---
+
+### Summary
+
+Grid Network provides a coordination model where **identity is a property proved by signed state**, **infrastructure is a replaceable service**, and **authorization flows from principals to peers without a central authority**. The review-stage specification establishes the cryptographic and structural foundations; the remaining work closes the boundary between design intent and interoperable implementation.
