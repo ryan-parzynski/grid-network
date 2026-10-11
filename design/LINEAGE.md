@@ -1,20 +1,12 @@
-# Addendum to RATIONALE.md — On Standing on the Shoulders of Giants
-
-**Document:** `RATIONALE.md` — Addendum B
-**Version:** 1.0
-**Status:** Draft
-
----
-
 ## Purpose
 
-This addendum addresses a question that comes up whenever someone first encounters Grid Network:
+This document addresses a question that comes up whenever someone first encounters Grid Network:
 
 > *"Isn't this just [Tailscale / Headscale / BitTorrent / Bitcoin / WireGuard / DNS] with extra steps?"*
 
 The honest answer is: **yes, in part — and that's the point.** Grid Network does not invent new cryptography, new transports, new relays, or new discovery mechanisms from scratch. It takes the ideas and, where it makes sense, the actual infrastructure implementations that have been proven to work, and it composes them into a system that solves a problem none of them solves alone.
 
-This addendum explains what Grid Network borrows from each of these systems, what it deliberately does differently, and why the composition is what makes the result useful.
+This document explains what Grid Network borrows from each of these systems, what it deliberately does differently, and why the composition is what makes the result useful.
 
 ---
 
@@ -28,7 +20,7 @@ Let's start by acknowledging what's true. The systems Grid Network learns from a
 - **WireGuard** is the best-designed VPN protocol in existence. It's small, fast, auditable, and formally verified. It has replaced decades of accumulated complexity with a few thousand lines of code.
 - **BitTorrent** demonstrated that millions of peers could coordinate without a central server, that bandwidth could be shared peer-to-peer, and that a distributed swarm could be more efficient than centralized distribution.
 - **Bitcoin** demonstrated that strangers could agree on a shared history without trusting each other, using cryptographic proofs and economic incentives.
-- **Tailscale** demonstrated that mesh VPNs could be pleasant to use. It made remote connectivity a consumer-friendly product rather than a sysadmin chore.
+- **Tailscale** demonstrated that Grid Network VPNs could be pleasant to use. It made remote connectivity a consumer-friendly product rather than a sysadmin chore.
 - **Headscale** demonstrated that a proprietary coordination service could be reimplemented by the community, and that self-hosting was possible even for systems not designed for it.
 
 Each of these systems succeeded at something. Grid Network takes those successes seriously.
@@ -47,7 +39,7 @@ BitTorrent doesn't solve this: it coordinates content distribution, not authenti
 
 Bitcoin doesn't solve this: it provides a global ledger but at enormous cost, and it doesn't provide a practical identity layer for normal devices.
 
-Tailscale doesn't solve this: it makes mesh VPNs pleasant, but the identity layer is owned by a company and not portable.
+Tailscale doesn't solve this: it makes Grid Network VPNs pleasant, but the identity layer is owned by a company and not portable.
 
 Headscale doesn't solve this: it self-hosts Tailscale's coordination, but inherits Tailscale's account-based identity model.
 
@@ -121,7 +113,7 @@ The problem is real, and none of these systems solves it. But each contributes a
 
 ### 7. From Tailscale
 
-**Borrowed:** The idea that mesh connectivity should be pleasant to use, with a good user experience.
+**Borrowed:** The idea that Grid Network connectivity should be pleasant to use, with a good user experience.
 
 **Borrowed:** The idea that NAT traversal should be automatic.
 
@@ -190,7 +182,7 @@ Grid Network's design decisions come directly from what these systems got right:
 - **From WireGuard:** A small protocol can be more secure than a large one, because it's more auditable.
 - **From BitTorrent:** Millions of peers can coordinate without central infrastructure if the coordination is simple enough.
 - **From Bitcoin:** Cryptographic signatures can replace institutional trust, but only where you actually need trustless consensus — and often you don't.
-- **From Tailscale:** Users will adopt a mesh VPN if the experience is pleasant, even if it's technically complex underneath.
+- **From Tailscale:** Users will adopt a Grid Network VPN if the experience is pleasant, even if it's technically complex underneath.
 - **From Headscale:** A well-designed protocol can be reimplemented by the community, even if the original was proprietary.
 
 ### 12. Learning from failures
@@ -271,7 +263,7 @@ But if the protocol succeeds, disruption is a consequence. Not because Grid Netw
 
 The commercial entities that get disrupted are those whose business model depends on being the *coordination authority*.
 
-- **Managed mesh VPNs.** Their value proposition is partly "we make connectivity easy" (which Grid Network also does) and partly "we're the permanent coordinators of your network" (which Grid Network doesn't need). The first part survives; the second part doesn't.
+- **Managed Grid Network VPNs.** Their value proposition is partly "we make connectivity easy" (which Grid Network also does) and partly "we're the permanent coordinators of your network" (which Grid Network doesn't need). The first part survives; the second part doesn't.
 
 - **Tunnel services.** Their value proposition is "we get you through the firewall." Grid Network still needs relays for the hard cases, but the relay layer is replaceable. What was a sticky platform becomes a competitive market.
 
@@ -369,15 +361,3 @@ Your devices, your identity, your relationships. Not rented. Not revocable by a 
 ### 30. The commercial pitch
 
 Buy priority relay capacity for your users. When they're not using it, your capacity helps hobbyists and small communities connect. A share of your subscription funds the protocol itself. You get SLA-backed connectivity; the ecosystem gets funded; nobody owns the network.
-
----
-
-## Appendix — Cross-references
-
-This addendum sits alongside `RATIONALE.md` and `RATIONALE.md — Addendum A` (commercial models, relay priority, credit pools, developer funding). It assumes familiarity with:
-
-- **`PROTOCOL.md`** — the protocol specification.
-- **`RATIONALE.md`** — the design rationale and contribution model.
-- **`RATIONALE.md — Addendum A`** — the commercial model.
-
-This addendum does not modify any normative protocol requirement. It documents the intellectual and technical lineage of the design, and the reasoning behind the composition.

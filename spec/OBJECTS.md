@@ -739,4 +739,7 @@ An implementation conforms to Grid Network v0.6.2 if:
 
 ---
 
-*End of OBJECTS.md v0.2 (partial — §6–§10 pending)*
+
+§6–§10: To be specified.
+
+*End of OBJECTS.md v0.2 (partial)*

@@ -35,11 +35,11 @@ Grid Network follows semantic versioning for the protocol specification:
 ## Document Versioning
 
 Each document has its own independent version:
-- PROTOCOL.md v0.6.2
-- OBJECTS.md v0.2
-- RATIONALE.md v2.0
-- COMMERCIAL.md v6.0
-- LINEAGE.md v1.0
+- spec/PROTOCOL.md v0.6.2
+- spec/OBJECTS.md v0.2
+- design/RATIONALE.md v2.0
+- commercial/MODEL.md v6.0
+- design/LINEAGE.md v1.0
 
 When PROTOCOL.md increments MINOR, dependent docs increment MINOR.
 When PROTOCOL.md increments MAJOR, all docs increment MAJOR.

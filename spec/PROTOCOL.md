@@ -1,38 +1,14 @@
-
-
-# Mesh Identity & Reachability Protocol
+# Grid Network Protocol
 
 **Design Document — v0.6.2**
 
 
-Supersedes: v0.6.1
 Scope: Identity, relationships, authorization, revocation, reachability, transport integration, deployment model, failure semantics, reconciliation
 
----
-
-## Change Log from v0.6.1
-
-1. **§30.2 and §30.3 clarified.** Rendezvous manifest and operator manifest now explicitly carry full stream envelope fields (sequence, previous_hash, chain_hash, signature).
-2. **§30.4 expanded.** Rendezvous authority invariant restated to include the operator's own identity.
-3. **§45.2 clarified.** `unsigned_payload` field boundary made explicit; `previous_hash` vs `previous_chain_hash` distinction restored.
-4. **§45.2 corrected.** `initial_chain_hash` now includes `stream_id`.
-5. **§48.4 refined.** Authorization Key `REVOKED` semantics clarified: objects before `effective_sequence` remain subject to ordinary rules; only those at or after are invalidated.
-6. **§54.4 corrected.** `StreamResolution` sequence semantics: resolver's sequence MUST NOT be compared with `disputed_sequence`.
-7. **§54.5 corrected.** `IdentityContinuity` chain trust bootstrap requirement made explicit.
-8. **§58.2 revised.** `RelationshipAssertion`, `RelationshipTermination`, `IdentityContinuity` signers aligned with v0.6.1 §12 and §54.5.
-9. **§58.5 expanded.** Authority Precedence Table updated for relationship-assertion pair semantics and identity continuity.
-10. **§61.5 rewritten.** "Not applicable" language replaces "REVOKED" for key-revocation-invalidated objects.
-11. **§62.10 updated.** Anti-pattern list refined.
-12. **§5 conceptual architecture expanded** with the connectivity layer above transport, without changing the protocol boundary.
-13. **New §63 added.** Project structure, document map, and layered architecture model.
-14. **New §64 added.** Versioning and evolution model.
-15. **New §65 added.** Triage decisions for V1 scope.
-
----
 
 ## 1. Abstract
 
-The Mesh Identity & Reachability Protocol is an open protocol for establishing persistent, mutually authenticated relationships between machines and services without requiring permanent accounts, centralized identity providers, or fixed network locations.
+The Grid Network Protocol is an open protocol for establishing persistent, mutually authenticated relationships between machines and services without requiring permanent accounts, centralized identity providers, or fixed network locations.
 
 The protocol provides a control plane above existing networking technologies. It does not replace WireGuard, IPv6, NAT traversal, relays, DNS, or application-level authorization. It establishes:
 
@@ -135,7 +111,7 @@ Applications may continue to implement their own authorization.
 ┌──────────────────────────────────────────────┐
 │                  Application                 │
 ├──────────────────────────────────────────────┤
-│          Mesh Identity & Authorization       │
+│          Grid Network Identity & Authorization       │
 │ Principal / Device / Service / Grant / Lease │
 ├──────────────────────────────────────────────┤
 │               Reachability                   │
@@ -154,7 +130,7 @@ The protocol layer is consumed by a **Connectivity layer** that is not part of t
 ┌──────────────────────────────────────────────┐
 │                  Application                 │
 ├──────────────────────────────────────────────┤
-│          Mesh Protocol (Layer 1)             │
+│          Grid Network Protocol (Layer 1)             │
 │  Identity / Authorization / Reachability     │
 ├──────────────────────────────────────────────┤
 │          Connectivity (Layer 3)              │
@@ -276,7 +252,7 @@ Delegation of authority from the Identity Root to a subordinate key is expressed
 
 ```
 IdentityDocument {
-    domain_separator   = "mesh/identity-document/v1"
+    domain_separator   = "grid/identity-document/v1"
     sequence
     previous_hash?
     chain_hash
@@ -335,7 +311,7 @@ Each principal publishes its own assertion in its own `stream:identity`. No obje
 
 ```
 RelationshipAssertion {
-    domain_separator   = "mesh/relationship-assertion/v1"
+    domain_separator   = "grid/relationship-assertion/v1"
     sequence
     previous_hash?
     chain_hash
@@ -359,7 +335,7 @@ RelationshipAssertion {
 
 ```
 RelationshipTermination {
-    domain_separator   = "mesh/relationship-termination/v1"
+    domain_separator   = "grid/relationship-termination/v1"
     sequence
     previous_hash?
     chain_hash
@@ -505,7 +481,7 @@ Offline tolerance is defined per-grant and evaluated separately from lease valid
 
 **Application authorization:** Once connected, what may the application do?
 
-The mesh layer does not replace application access control.
+The Grid Network layer does not replace application access control.
 
 ---
 
@@ -555,7 +531,7 @@ Key IDs are immutable. Once revoked, a key ID can never be reused.
 
 ```
 KeyRevocation {
-    domain_separator   = "mesh/key-revocation/v1"
+    domain_separator   = "grid/key-revocation/v1"
     sequence
     previous_hash?
     chain_hash
@@ -696,10 +672,10 @@ Identity Reference ≠ Pairing Invitation ≠ Authorization Grant ≠ Recovery C
 
 ---
 
-## 29. Mesh URI
+## 29. Grid Network URI
 
 ```
-mesh://v1/...
+grid://v1/...
 ```
 
 Grammar MUST be formally specified in ABNF. Parsing MUST be strict. Must distinguish identity references, temporary invitations, capability requests, and rendezvous hints. A permanent URI MUST NOT contain a mandatory fixed rendezvous dependency.
@@ -725,7 +701,7 @@ A rendezvous server is not a freshness source merely because it stores objects.
 
 ```
 RendezvousManifest {
-    domain_separator   = "mesh/rendezvous-manifest/v1"
+    domain_separator   = "grid/rendezvous-manifest/v1"
     sequence
     previous_hash?
     chain_hash
@@ -748,7 +724,7 @@ RendezvousManifest {
 
 ```
 OperatorManifest {
-    domain_separator   = "mesh/operator-manifest/v1"
+    domain_separator   = "grid/operator-manifest/v1"
     sequence
     previous_hash?
     chain_hash
@@ -795,7 +771,7 @@ A malicious rendezvous server may provide stale or false endpoints, suppress end
 
 ```
 ReachabilityRecord {
-    domain_separator   = "mesh/reachability-record/v1"
+    domain_separator   = "grid/reachability-record/v1"
     sequence
     previous_hash?
     chain_hash
@@ -829,7 +805,7 @@ Relays are transport infrastructure.
 
 ```
 RelayTicket {
-    domain_separator   = "mesh/relay-ticket/v1"
+    domain_separator   = "grid/relay-ticket/v1"
     sequence
     previous_hash?
     chain_hash
@@ -860,7 +836,7 @@ WireGuard is the preferred initial transport.
 ## 35. Enforcement
 
 ```
-Mesh daemon → WireGuard configuration → Firewall → Reverse proxy → Application
+Grid Network daemon → WireGuard configuration → Firewall → Reverse proxy → Application
 ```
 
 ---
@@ -869,7 +845,7 @@ Mesh daemon → WireGuard configuration → Firewall → Reverse proxy → Appli
 
 ```
 ServiceRecord {
-    domain_separator   = "mesh/service-record/v1"
+    domain_separator   = "grid/service-record/v1"
     sequence
     previous_hash?
     chain_hash
@@ -998,25 +974,25 @@ All signed objects use deterministic CBOR (OBJECTS.md).
 ## 42. Domain Separation
 
 ```
-mesh/identity-document/v1
-mesh/device-binding/v1
-mesh/service-binding/v1
-mesh/key-binding/v1
-mesh/key-revocation/v1
-mesh/relationship-assertion/v1
-mesh/relationship-termination/v1
-mesh/rendezvous-manifest/v1
-mesh/operator-manifest/v1
-mesh/relationship-grant/v1
-mesh/authorization-lease/v1
-mesh/grant-revocation/v1
-mesh/lease-revocation/v1
-mesh/service-record/v1
-mesh/reachability-record/v1
-mesh/stream-resolution/v1
-mesh/identity-continuity/v1
-mesh/relay-ticket/v1
-mesh/relay-node-record/v1
+grid/identity-document/v1
+grid/device-binding/v1
+grid/service-binding/v1
+grid/key-binding/v1
+grid/key-revocation/v1
+grid/relationship-assertion/v1
+grid/relationship-termination/v1
+grid/rendezvous-manifest/v1
+grid/operator-manifest/v1
+grid/relationship-grant/v1
+grid/authorization-lease/v1
+grid/grant-revocation/v1
+grid/lease-revocation/v1
+grid/service-record/v1
+grid/reachability-record/v1
+grid/stream-resolution/v1
+grid/identity-continuity/v1
+grid/relay-ticket/v1
+grid/relay-node-record/v1
 ```
 
 ---
@@ -1038,7 +1014,7 @@ The object's schema version is identified by its `domain_separator`. A signed ob
 
 ```
 object_id = SHA-256(canonical_cbor([
-    "mesh/object-id/v1",
+    "grid/object-id/v1",
     canonical_signed_object_bytes
 ]))
 ```
@@ -1047,7 +1023,7 @@ object_id = SHA-256(canonical_cbor([
 
 ```
 payload_id = SHA-256(canonical_cbor([
-    "mesh/payload-id/v1",
+    "grid/payload-id/v1",
     unsigned_payload
 ]))
 ```
@@ -1084,7 +1060,7 @@ A `KeyRevocation` is signed by the Identity Root and occupies the Identity Root'
 ```
 unsigned_payload(N)      = object fields excluding chain_hash and signature
 commitment_preimage(N)   = canonical_cbor([
-                              "mesh/commitment/v1",
+                              "grid/commitment/v1",
                               domain_separator,
                               unsigned_payload(N)
                            ])
@@ -1097,19 +1073,19 @@ previous_chain_hash(N)   = initial_chain_hash         for N = 1
                            chain_hash(N-1)             for N > 1
 
 initial_chain_hash       = SHA-256(canonical_cbor([
-                              "mesh/chain-base/v1",
+                              "grid/chain-base/v1",
                               domain_separator,
                               stream_id
                            ]))
 
 chain_hash(N)            = SHA-256(canonical_cbor([
-                              "mesh/chain/v1",
+                              "grid/chain/v1",
                               previous_chain_hash(N),
                               object_commitment(N)
                            ]))
 
 signature_input(N)       = canonical_cbor([
-                              "mesh/signature/v1",
+                              "grid/signature/v1",
                               domain_separator,
                               unsigned_payload(N),
                               chain_hash(N)
@@ -1808,7 +1784,7 @@ Defines reconciliation of conflicting objects in the same stream, synchronizatio
 
 ```
 StreamResolution {
-    domain_separator   = "mesh/stream-resolution/v1"
+    domain_separator   = "grid/stream-resolution/v1"
     sequence           // in the resolver's stream
     previous_hash?
     chain_hash
@@ -1872,7 +1848,7 @@ The predecessor identity stream terminates at the point of transition. The succe
 
 ```
 IdentityContinuity {
-    domain_separator   = "mesh/identity-continuity/v1"
+    domain_separator   = "grid/identity-continuity/v1"
     sequence           = 1
     // previous_hash omitted
     chain_hash                                   // initial_chain_hash of successor stream
@@ -2025,12 +2001,12 @@ Applications consume authenticated identity and authorized connections. They do 
 ### 55.2 Local interface
 
 ```
-mesh.discover()                     → list of known peers
-mesh.resolve(peer_id)               → peer state
-mesh.connect(service_link_id, cap)  → local connection handle
-mesh.authorize(peer_id, capability) → authorization decision
-mesh.revoke(object_id)              → issue revocation
-mesh.status()                       → daemon and peer state
+Grid Network.discover()                     → list of known peers
+Grid Network.resolve(peer_id)               → peer state
+Grid Network.connect(service_link_id, cap)  → local connection handle
+Grid Network.authorize(peer_id, capability) → authorization decision
+Grid Network.revoke(object_id)              → issue revocation
+Grid Network.status()                       → daemon and peer state
 ```
 
 ### 55.3 Connection handles
@@ -2060,7 +2036,7 @@ Enforcement may occur through transport configuration, firewall rules, proxying,
 ### 55.7 Integration with existing applications
 
 ```
-Application → mesh.connect() → daemon → overlay → peer
+Application → Grid Network.connect() → daemon → overlay → peer
 ```
 
 ---
@@ -2601,7 +2577,7 @@ This section is **informative** with respect to the protocol. It does not add no
 
 The entire project reduces to one sentence:
 
-> **Mesh is not a decentralized VPN. Mesh is a cryptographic identity and authorization layer that turns whatever network connectivity happens to exist into a usable, replaceable connectivity fabric.**
+> **Grid Network is not a decentralized VPN. Grid Network is a cryptographic identity and authorization layer that turns whatever network connectivity happens to exist into a usable, replaceable connectivity fabric.**
 
 Everything the protocol does, it does to answer one of these six questions:
 
@@ -2680,12 +2656,12 @@ Each layer is independent. Layer 1 does not depend on Layer 3; Layer 3 consumes 
 ### 63.8 Document structure
 
 ```
-mesh/
+grid/
 │
 ├── PROTOCOL.md               ← this document (v0.6.2)
 ├── OBJECTS.md                ← canonical encoding, schemas, vectors
 ├── SECURITY.md               ← threat model, verifier rules (to draft)
-├── IMPLEMENTATION.md         ← Mesh Agent architecture (to draft)
+├── IMPLEMENTATION.md         ← Grid Network Agent architecture (to draft)
 ├── CONNECTIVITY.md           ← connectivity architecture (to draft)
 ├── VERSIONING.md             ← §64 of this document (may split)
 ├── TEST-VECTORS/             ← byte-exact normative cases
@@ -2718,15 +2694,15 @@ mesh/
 Each protocol object type carries its schema version in its `domain_separator`:
 
 ```
-mesh/identity-document/v1
-mesh/relationship-assertion/v1
-mesh/stream-resolution/v1
+grid/identity-document/v1
+grid/relationship-assertion/v1
+grid/stream-resolution/v1
 ```
 
 A new schema version uses a new domain separator:
 
 ```
-mesh/identity-document/v2
+grid/identity-document/v2
 ```
 
 Domain separators are never reused. A `v1` schema is frozen once the object type is declared stable in a released protocol version.
@@ -2905,7 +2881,7 @@ These have been considered and rejected. They appear in §62.10 as documented an
 - Global Sybil resistance in the protocol kernel
 - PoW as a foundational mechanism
 - "Raspberry Pis form a decentralized relay network" as a product pitch (demoted to example)
-- "Mesh can burst around ISP throttling" as a feature framing (underlying observation retained as research note)
+- "Grid Network can burst around ISP throttling" as a feature framing (underlying observation retained as research note)
 
 ### 65.8 Deferral principle
 
@@ -2954,4 +2930,4 @@ The resulting security question:
 
 If the answer is yes, the peer can be trusted regardless of its current IP address, NAT mapping, rendezvous provider, relay, physical network, or whether it has been offline for months.
 
-That is the fundamental purpose of the Mesh Identity & Reachability Protocol.
+That is the fundamental purpose of the Grid Network Protocol.

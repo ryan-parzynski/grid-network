@@ -51,7 +51,7 @@
 - Relay tickets
 - Bandwidth quotas
 - Priority classes (free/standard/priority/dedicated)
-- **At Phase 5: PROTOCOL.md freezes as v1.0**
+- **At Phase 5: PROTOCOL.md freezes as v1.0 (spec/PROTOCOL.md)**
 
 ## Phase 6 — Mobile Integration
 **Timeline:** Q4 2025 – Q1 2026

@@ -35,10 +35,10 @@ git clone https://github.com/ryan-parzynski/grid-network
 cd grid-network
 
 # View protocol spec
-cat docs/protocol/PROTOCOL-v0.6.2.md
+cat spec/PROTOCOL.md
 
 # View roadmap
-cat docs/operations/ROADMAP.md
+cat ROADMAP.md
 ```
 
 ## Code of Conduct
