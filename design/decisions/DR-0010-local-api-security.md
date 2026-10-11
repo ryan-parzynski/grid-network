@@ -10,42 +10,22 @@ linked_finding: H4/H7
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Local API caller authentication"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-10
-severity: Med
-blocks: V1.1
-linked_finding: H4/H7
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-10 — Local API caller authentication
+# D-10
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-10
-- Title: Local API caller authentication
-- Severity: Med
-- Blocks: V1.1
-- Linked finding: [REVIEW-2026-10-11 H4/H7](../REVIEW-2026-10-11.md) (see section H4/H7 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-10: LOCAL API CALLER AUTHENTICATION AND KEY CUSTODY
-[HIGH PRIORITY, IMPACTS EMBEDDED DEPLOYMENT AND MOBILE]
+## Context / Problem
 
-Problem:
 v0.6.2 defines the local API (§17) but does not say which local processes may
 call it, how callers are authenticated, or where private keys are stored. The
 agent is called a "security boundary," but the boundary is not defined. This
 is critical on mobile and embedded systems where the agent is often inside the
 application process (H4).
+
+## Options considered
 
 Option A: OS-level caller identification + registered scopes [PROPOSED in §17]
 
@@ -109,13 +89,17 @@ Option C: Embedded only; no local IPC
     - Contradicts the design goal ("consume a common local agent").
     - Mobile and desktop diverge significantly.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (OS-level caller ID + scopes + secure keystores). Implement
 platform-native security (socket/pipe/embedded API). Define the scope model
 clearly in CONTRIBUTING.md and the agent documentation.
 
-Consequences:
-  - §17: update local API security model (as proposed).
+## Consequences
+
+- §17: update local API security model (as proposed).
   - Implementer guide: platform-specific socket/pipe creation, SCM_RIGHTS
     (Linux), named-pipe ACLs (Windows), iOS/Android framework integration.
   - Test vectors: unauthorized caller rejection, scope enforcement.

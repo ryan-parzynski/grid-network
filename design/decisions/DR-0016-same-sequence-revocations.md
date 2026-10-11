@@ -10,41 +10,21 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Same-sequence key revocations"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-16
-severity: Med
-blocks: V1.1
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-16 — Same-sequence key revocations
+# D-16
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-16
-- Title: Same-sequence key revocations
-- Severity: Med
-- Blocks: V1.1
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-16: SAME-SEQUENCE KEY REVOCATIONS AND CONFLICTS
-[LOW PRIORITY, EDGE CASE]
+## Context / Problem
 
-Problem:
 If two KeyRevocations are accepted for the same Authorization Key with the
 same effective_sequence but different effective_predecessor_chain_hash (D-04
 introduces the predecessor hash), the root's stream is internally
 inconsistent. Which revocation is correct? v0.6.2 does not address this.
+
+## Options considered
 
 Option A: First revocation stands; second is fork evidence
 
@@ -72,14 +52,18 @@ Option B: Both revocations are recorded; operator must investigate
     - No automatic resolution.
     - User-facing: users see an alert for a root-stream issue.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (first revocation stands) unless operator experience testing
 (D-23) shows otherwise. The scenario is rare (requires root to issue
 conflicting revocations, i.e., root compromise or bug). If it happens,
 re-pairing and explicit root recovery are likely needed anyway.
 
-Consequences:
-  - §9 rule 6 (added by D-04): clarify that equal effective_sequence with
+## Consequences
+
+- §9 rule 6 (added by D-04): clarify that equal effective_sequence with
     different predecessor hashes is FORK_EVIDENCE at the root stream level.
   - Test vectors: competing revocations for the same key at the same
     effective_sequence.

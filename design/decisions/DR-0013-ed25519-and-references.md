@@ -10,42 +10,22 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Ed25519 verification strictness"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-13
-severity: High
-blocks: V1
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-13 — Ed25519 verification strictness
+# D-13
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-13
-- Title: Ed25519 verification strictness
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md) (see section — or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-13: ED25519 VERIFICATION STRICTNESS AND KEY VALIDATION
-[HIGH PRIORITY, AFFECTS INTEROPERABILITY]
+## Context / Problem
 
-Problem:
 RFC 8032 Ed25519 implementations differ on small-order keys, non-canonical
 signature encodings, and cofactor handling. Without specifying strictness,
 verifiers will diverge: one implementation accepts a signature; another
 rejects it. This is the top interoperability risk after the stream model
 (H7).
+
+## Options considered
 
 Option A: Strict RFC 8032 verification [PROPOSED in §13.2]
 
@@ -83,12 +63,16 @@ Option B: Permissive (library default)
       under some implementations but not others.
     - Interoperability is not guaranteed.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (strict RFC 8032). Implement the strictness layer explicitly.
 Publish edge-case vectors and require every implementation to pass them.
 
-Consequences:
-  - §13.2: finalize strictness rules (as proposed).
+## Consequences
+
+- §13.2: finalize strictness rules (as proposed).
   - Crypto reference: write a reference verifier showing the exact checks
     (pseudocode or Rust code).
   - Test vectors: at least one vector for each edge case (small-order key,

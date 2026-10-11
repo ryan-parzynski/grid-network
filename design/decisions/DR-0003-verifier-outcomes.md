@@ -10,43 +10,23 @@ linked_finding: C3
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Verifier outcomes and classification"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-03
-severity: High
-blocks: V1
-linked_finding: C3
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-03 — Verifier outcomes and classification
+# D-03
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-03
-- Title: Verifier outcomes and classification
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 C3](../REVIEW-2026-10-11.md) (see section C3 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-03: VERIFICATION OUTCOMES AND CLASSIFICATION
-[BLOCKING, CRITICAL PRIORITY]
+## Context / Problem
 
-Problem:
 v0.6.2 §14 has two outcomes (ACCEPT, REJECT) but the procedure describes
 cases that need more fine-grained handling: gaps (sequence N+5 arrives before
 N+1), forks (conflicting sequence N with same predecessor), and overlapping
 rejection criteria (e.g., INVALID_SEQUENCE and INVALID_PREVIOUS_HASH both
 apply to the same object). C3 identifies the problem; §14 proposed replacement
 has four outcomes.
+
+## Options considered
 
 Option A: Four outcomes, one check per class [PROPOSED in §14]
 
@@ -92,13 +72,17 @@ Option B: Two outcomes, implicit handling [v0.6.2 model]
       rollback, or is it an error?
     - Tested behavior is hard to specify without explicit outcomes.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (four outcomes, one class per check). Implement the §14
 procedure as proposed. This is the single highest-value decision for
 unambiguous interoperable verification.
 
-Consequences:
-  - OBJECTS.md §5.3: becomes the §14 text verbatim.
+## Consequences
+
+- OBJECTS.md §5.3: becomes the §14 text verbatim.
   - Test vectors: at least one vector per outcome; one per rejection class.
   - Implementer docs: state-machine diagrams for SYNCING, FORKED, recovery.
   - D-14 (StreamResolution) depends on this; forks become explicit.

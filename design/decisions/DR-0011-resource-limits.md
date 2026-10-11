@@ -10,40 +10,20 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Resource limits"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-11
-severity: High
-blocks: V1
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-11 — Resource limits
+# D-11
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-11
-- Title: Resource limits
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md) (see section — or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-11: RESOURCE LIMITS AND PARSER HARDENING
-[HIGH PRIORITY, BLOCKS DEPLOYMENT]
+## Context / Problem
 
-Problem:
 v0.6.2 states that limits are "deferred to the applicable completed schema."
 Hostile CBOR input must be rejected before allocation; without normative
 limits, every parser is left guessing (H5).
+
+## Options considered
 
 Option A: Normative table in §13.6 [PROPOSED]
 
@@ -89,13 +69,17 @@ Option B: Guidelines only; defer to implementation
     - Interoperability breaks.
     - No protection against DOS by allocation.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (normative table in §13.6). Test against the limits before
 release (D-23). If measurement shows a limit is wrong, revise and re-tag the
 spec.
 
-Consequences:
-  - §13.6: finalize the table with measurements (D-23 responsibility).
+## Consequences
+
+- §13.6: finalize the table with measurements (D-23 responsibility).
   - Implementer guide: pseudocode for size checks before CBOR parsing.
   - Test vectors: object at limit, object 1 byte over limit (rejection).
   - Conformance: every conformance test must enforce the same limits.

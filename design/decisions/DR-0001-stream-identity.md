@@ -10,43 +10,23 @@ linked_finding: C5
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Stream identity model"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-01
-severity: High
-blocks: V1
-linked_finding: C5
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-01 — Stream identity model
+# D-01
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-01
-- Title: Stream identity model
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 C5](../REVIEW-2026-10-11.md) (see section C5 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-01: STREAM IDENTITY MODEL — HASH-DERIVED VS TEXT NAMES
-[BLOCKING, HIGH PRIORITY]
+## Context / Problem
 
-Problem:
 OBJECTS.md §7 defines hash-derived stream_id = H(principal_id || signing_key_id
 || stream_context || epoch), with key-authorization records and varint
 encoding. PROTOCOL.md §45.1 defines text stream names: stream:identity,
 stream:reachability:<device_id>, etc. These models are incompatible. Choice
 affects IdentityContinuity (C1), chain base derivation (C2), rendezvous
 serialization, and wire protocol.
+
+## Options considered
 
 Option A: Text names, qualified by role key ID
 
@@ -88,13 +68,17 @@ Option B: Hash-derived with epoch, varint encoding
       stream_id. If stream_context changes, the epoch field is redundant.
     - Debugging is harder: logs show hashes, not roles.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (text names, qualified). Addresses C1 directly. Adds
 identifiers per §5.2 (ASCII, max 128 bytes). Update PROTOCOL.md §45.1 and
 OBJECTS.md §7 to use this model everywhere. Delete varint encoding.
 
-Consequences:
-  - §5.2: Add identifier restrictions (ASCII, length limit).
+## Consequences
+
+- §5.2: Add identifier restrictions (ASCII, length limit).
   - §13.2: Update chain base to stream_class + stream_id (D-02).
   - All wire protocol and rendezvous examples use text names.
   - Test vectors: include stream_id in every object.

@@ -10,42 +10,22 @@ linked_finding: H1/M1
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Relationship privacy"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-07
-severity: High
-blocks: V1
-linked_finding: H1/M1
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-07 — Relationship privacy
+# D-07
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-07
-- Title: Relationship privacy
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 H1/M1](../REVIEW-2026-10-11.md) (see section H1/M1 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-07: RELATIONSHIP PRIVACY — ASSERTION STREAM LOCATION
-[HIGH PRIORITY, IMPACTS D-01 AND DEPLOYMENT]
+## Context / Problem
 
-Problem:
 v0.6.2 places RelationshipAssertion and RelationshipTermination in the
 principal's identity stream. Rendezvous servers are expected to serve identity
 streams. Anyone querying the rendezvous learns the principal's entire contact
 list (H1). The spec acknowledges anonymity is not a property, but this is a
 larger exposure than intended.
+
+## Options considered
 
 Option A: Per-relationship stream, shared only with counterpart [PROPOSED]
 
@@ -106,12 +86,16 @@ Option C: No change; live with the exposure
       no incidental mega-leaks").
     - Creates a user-visible privacy cliff.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (per-relationship streams). Closes H1. Simplifies identity
 and relationship state management. Adds clarity to the wire protocol.
 
-Consequences:
-  - D-01: add stream:relationship:<relationship_id> to the text-name model.
+## Consequences
+
+- D-01: add stream:relationship:<relationship_id> to the text-name model.
   - OBJECTS.md: move RelationshipAssertion and RelationshipTermination to
     relationship streams; remove them from identity stream.
   - §7: update the relationship state machine; note that RECOGNIZED requires

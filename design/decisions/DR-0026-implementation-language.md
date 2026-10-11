@@ -10,41 +10,21 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Implementation language"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-26
-severity: Low
-blocks: —
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-26 — Implementation language
+# D-26
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-26
-- Title: Implementation language
-- Severity: Low
-- Blocks: —
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-26: IMPLEMENTATION LANGUAGE — RUST, GO, PYTHON, OR OTHER
-[MEDIUM PRIORITY, IMPACTS BUILD AND DEPLOYMENT]
+## Context / Problem
 
-Problem:
 No implementation language is established in the supplied files. The spec
 requires specific properties: safe CBOR parsing (R1), mobile embedding (R2),
 WireGuard integration (R3), small relay footprint (R4), strict cryptography
 (R5), and community approachability (R6).
+
+## Options considered
 
 Option A: Rust for the core, Go for rendezvous/relay [PROPOSED]
 
@@ -108,7 +88,10 @@ Option D: TypeScript/Node.js for simplicity
     - Performance not suitable for relays on Pi-class hardware.
     - CBOR parsing libraries are not typically strict (R5).
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (Rust core + Go rendezvous/relay + Python/TS test harness).
 Rust address the highest-risk decision (R1: memory-safe CBOR parsing of
 hostile input in a security boundary). Go and Python are acceptable for
@@ -120,8 +103,9 @@ and relay in Go (proven reliability, community expertise in Tailscale and
 WireGuard projects). Test harness in Python or TypeScript (fast iteration,
 clear test logic).
 
-Consequences:
-  - Toolchain: Rust 1.70+, Go 1.21+, Python 3.11+ or Node 18+.
+## Consequences
+
+- Toolchain: Rust 1.70+, Go 1.21+, Python 3.11+ or Node 18+.
   - Repository structure: core/rust/, rendezvous/go/, relay/go/,
     reference/python/, conformance/python/.
   - CI: rustfmt/clippy (Rust), gofmt/go vet (Go), Python linting
@@ -129,4 +113,3 @@ Consequences:
   - Mobile: Rust FFI bindings in reference/bindings/{swift,kotlin}/.
   - Documentatio: language-specific setup guides in implementations/README.md.
   - D-26 unblocks the build planning (D-27).
-

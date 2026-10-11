@@ -10,40 +10,20 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Multi-store publication"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-20
-severity: Low
-blocks: EXT
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-20 — Multi-store publication
+# D-20
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-20
-- Title: Multi-store publication
-- Severity: Low
-- Blocks: EXT
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-20: MULTI-STORE PUBLICATION AND RENDEZVOUS REPLICATION
-[HIGH PRIORITY, AVAILABILITY IMPACT]
+## Context / Problem
 
-Problem:
 v0.6.2 assumes a principal publishes to one rendezvous. But if that rendezvous
 goes down, the peer becomes unreachable. Should principals publish to multiple
 rendezvous for redundancy?
+
+## Options considered
 
 Option A: Multi-store publication in V1
 
@@ -76,13 +56,17 @@ Option B: Single primary rendezvous in V1; replication in V1.1
     - No redundancy in V1.
     - Later migration to multi-store may require schema changes.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option B (single rendezvous in V1, multi-store deferred to V1.1 / D-20
 decision). V1 focuses on proving the kernel. Rendezvous redundancy is a
 deployment choice, not a protocol requirement.
 
-Consequences:
-  - §11.1 and wire protocol (D-20 decision in D-21): describe single
+## Consequences
+
+- §11.1 and wire protocol (D-20 decision in D-21): describe single
     rendezvous behavior.
   - Operator docs: note that multiple rendezvous are not supported in V1 (or
     require external caching/CDN).

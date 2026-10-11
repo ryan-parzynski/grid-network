@@ -10,42 +10,22 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Relay economy and extension scope"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-24
-severity: Low
-blocks: EXT
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-24 — Relay economy and extension scope
+# D-24
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-24
-- Title: Relay economy and extension scope
-- Severity: Low
-- Blocks: EXT
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-24: RELAY ECONOMY AND EXTENSION SCOPE
-[MEDIUM PRIORITY, AFFECTS V1.1 ROADMAP]
+## Context / Problem
 
-Problem:
 v0.6.2 describes RelayTicket, RelayNodeRecord, relay operator manifests,
 capability profiles, capacity pooling, and credits. These are important to
 community and commercial relay deployment, but they are not kernel
 functionality. They depend on a completed wire protocol (D-20 / D-21) and
 operator experience. Should they be in V1 or deferred?
+
+## Options considered
 
 Option A: Minimal relay in V1; economy extension in V1.1
 
@@ -79,12 +59,16 @@ Option B: Full relay economy in V1
     - Unproven: no operator experience yet; design will change.
     - Delays v0.8.0 by months.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (minimal relay in V1, economy in V1.1). Kernel first, then
 relays, then incentives. Update the roadmap (stage 6).
 
-Consequences:
-  - OBJECTS.md: RelayTicket is a minimal V1 object with endpoints, expiry,
+## Consequences
+
+- OBJECTS.md: RelayTicket is a minimal V1 object with endpoints, expiry,
     rate limits, and source/destination principals.
   - design/EXTENSIONS.md: OperatorManifest, Relay Authority Key, capability
     profiles, credits, gossip, federation.

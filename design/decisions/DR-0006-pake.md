@@ -10,41 +10,21 @@ linked_finding: C2/C6
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — PAKE algorithm and transcript"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-06
-severity: High
-blocks: V1
-linked_finding: C2/C6
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-06 — PAKE algorithm and transcript
+# D-06
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-06
-- Title: PAKE algorithm and transcript
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 C2/C6](../REVIEW-2026-10-11.md) (see section C2/C6 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-06: PAIRING ALGORITHM AND TRANSCRIPT CONTRACT
-[BLOCKING, CRITICAL PRIORITY]
+## Context / Problem
 
-Problem:
 C6 and the spec identify SPAKE2 or CPace as candidates, but neither is fully
 specified. The protocol's security rests on the pairing transcript (§10);
 implementations must agree byte-for-byte. Without test vectors and an exact
 algorithm choice, interoperability cannot be claimed.
+
+## Options considered
 
 Option A: SPAKE2 with specified transcript format [PROPOSED in §10]
 
@@ -81,13 +61,17 @@ Option B: CPace (https://datatracker.ietf.org/doc/html/rfc9383 Appendix A)
     - Security analysis is more recent; larger field for hidden bugs.
     - RFC is an appendix; less standalone clarity.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (SPAKE2). Stability and maturity outweigh CPace's efficiency
 gain. Write the exact transcript binding in a PAKE specification document
 (not in the core protocol document; PAKE is a bounded, self-contained choice).
 
-Consequences:
-  - New document: spec/PAIRING.md, specifying SPAKE2, transcript, code
+## Consequences
+
+- New document: spec/PAIRING.md, specifying SPAKE2, transcript, code
     lifetimes, retry limits, verification value (SAS) derivation, test vectors.
   - Update §10 with a reference to PAIRING.md and the minimum output contract.
   - Reference verifier: SPAKE2 library integration (libspake2 or eq.).

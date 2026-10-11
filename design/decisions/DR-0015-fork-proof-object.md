@@ -10,41 +10,21 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Transmissible fork-proof object"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-15
-severity: Med
-blocks: EXT
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-15 — Transmissible fork-proof object
+# D-15
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-15
-- Title: Transmissible fork-proof object
-- Severity: Med
-- Blocks: EXT
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-15: TRANSMISSIBLE FORK-PROOF OBJECT
-[MEDIUM PRIORITY, DEPENDS ON D-03]
+## Context / Problem
 
-Problem:
 §14 (D-03) generates FORK_EVIDENCE as a verifier outcome. But how does one
 verifier communicate fork evidence to another? What is the authoritative
 representation of a fork? D-15 considers whether to add a signed fork-proof
 object that can be transmitted and acted upon.
+
+## Options considered
 
 Option A: Fork evidence is verifier-local; no transmissible object
 
@@ -81,13 +61,17 @@ Option B: ForkProof object signed by a disputing party [NEW OBJECT]
     - Requires the disputing party to voluntarily generate a proof (could be
       kept secret).
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Defer to D-23 (vector planning). If testing reveals that fork communication
 is valuable, add ForkProof in V1.1. For V1, fork evidence is verifier-local
 (Option A).
 
-Consequences:
-  - If Option B is chosen later: add grid/fork-proof/v1 to EXTENSION registry;
+## Consequences
+
+- If Option B is chosen later: add grid/fork-proof/v1 to EXTENSION registry;
     implement and vector it.
   - D-23: include fork scenarios and evidence-communication scenarios in the
     test plan.

@@ -10,42 +10,22 @@ linked_finding: H5
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Freshness attestation"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-08
-severity: Med
-blocks: V1.1
-linked_finding: H5
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-08 — Freshness attestation
+# D-08
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-08
-- Title: Freshness attestation
-- Severity: Med
-- Blocks: V1.1
-- Linked finding: [REVIEW-2026-10-11 H5](../REVIEW-2026-10-11.md) (see section H5 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-08: FRESHNESS ATTESTATION AND REFRESH OBJECTS
-[HIGH PRIORITY, BLOCKS AUTHORIZATION]
+## Context / Problem
 
-Problem:
 v0.6.2 distinguishes lease validity from authorization freshness, but has no
 signed object that records a "successful refresh." Freshness therefore cannot
 be computed from signed state as the core invariant requires (H2). A verifier
 cannot tell if it has truly seen all revocations from an issuer; it can only
 count elapsed time.
+
+## Options considered
 
 Option A: FreshnessAttestation, ephemeral, with issuer stream head
 [PROPOSED in §12, H2]
@@ -116,14 +96,18 @@ Option C: Time-based freshness only; no explicit refresh
     - Violates the core invariant (cannot establish freshness from signed
       state alone).
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (FreshnessAttestation, interactive, with stream head).
 Provides cryptographic proof that the verifier has seen all revocations
 without requiring a new stream. The interactive round-trip is the cost of
 certainty; applications can batch multiple freshness requests per connection.
 
-Consequences:
-  - Add grid/freshness-attestation/v1 to the separator registry, marked
+## Consequences
+
+- Add grid/freshness-attestation/v1 to the separator registry, marked
     EPHEMERAL (not stored by rendezvous, not persisted by verifier, not
     part of a stream).
   - OBJECTS.md: FreshnessAttestation schema.

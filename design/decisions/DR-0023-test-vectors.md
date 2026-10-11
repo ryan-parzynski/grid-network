@@ -10,40 +10,20 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Test vectors and conformance"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-23
-severity: High
-blocks: V1
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-23 — Test vectors and conformance
+# D-23
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-23
-- Title: Test vectors and conformance
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-23: TEST VECTORS AND CONFORMANCE PROGRAM
-[BLOCKING, HIGHEST IMPLEMENTATION BURDEN]
+## Context / Problem
 
-Problem:
 Without byte-exact, machine-verifiable test vectors, two implementations
 cannot prove they interoperate. §19 lists desired test categories; D-23 is
 the decision on scope, format, and governance.
+
+## Options considered
 
 Option A: Comprehensive vector suite [PROPOSED]
 
@@ -94,15 +74,19 @@ Option B: Minimal vectors; defer the rest
       vectors but diverge on scenarios.
     - Not reproducible: ad-hoc tests are not machine-verifiable.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (comprehensive suite). This is the single highest-value
 activity after decisions are closed. Allocate 4–6 weeks after v0.7.0
 (decisions) to produce reference implementation, vectors, and a reference
 verifier. No v0.8.0 tag without at least 300 vectors and agreement from a
 second verifier.
 
-Consequences:
-  - New repository: reference/, with a reference verifier and vector generator.
+## Consequences
+
+- New repository: reference/, with a reference verifier and vector generator.
   - New repository: spec/TEST-VECTORS/, with machine-readable vector suites.
   - Conformance tests: every implementation's CI must verify against the
     vector suite; publish results as a conformance matrix.

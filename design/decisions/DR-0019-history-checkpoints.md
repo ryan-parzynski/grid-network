@@ -10,42 +10,22 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — History checkpoints"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-19
-severity: Med
-blocks: EXT
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-19 — History checkpoints
+# D-19
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-19
-- Title: History checkpoints
-- Severity: Med
-- Blocks: EXT
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-19: HISTORY CHECKPOINTS AND UNBOUNDED STREAM GROWTH
-[MEDIUM PRIORITY, OPERATIONAL IMPACT]
+## Context / Problem
 
-Problem:
 Append-only streams grow forever. A new verifier downloading a principal's
 entire authorization stream from a rendezvous would fetch every object ever
 issued, which could be thousands of lease/grant/revocation objects over
 years. M4 flags this; it is not a correctness problem but a deployment
 concern.
+
+## Options considered
 
 Option A: Checkpoint objects with prior pruning [V1.1 EXTENSION]
 
@@ -94,14 +74,18 @@ Option C: Truncation allowed; older objects discarded [V1, SIMPLE]
     - Revocation of very old grants becomes hard to trace.
     - Contradicts the "verifier retains history for audit" principle.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option B for V1 (unbounded growth; no checkpoints). Checkpoints are
 designed in D-19 for V1.1 after real deployments reveal true growth rates. If
 measurement (D-23) shows growth is problematic before v0.8.0, add a simple
 checkpoint mechanism to V1.
 
-Consequences:
-  - V1 spec: no checkpoint mechanism.
+## Consequences
+
+- V1 spec: no checkpoint mechanism.
   - Rendezvous operators: must plan for multi-year storage (rough estimate:
     100 bytes per object × 10 grants/leases/revocations per principal ×
     1000 principals = ~1 GB for a 1000-peer rendezvous; varies wildly).

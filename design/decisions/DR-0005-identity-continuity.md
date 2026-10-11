@@ -10,42 +10,22 @@ linked_finding: C5
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Identity continuity termination"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-05
-severity: High
-blocks: V1
-linked_finding: C5
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-05 — Identity continuity termination
+# D-05
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-05
-- Title: Identity continuity termination
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 C5](../REVIEW-2026-10-11.md) (see section C5 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-05: IDENTITY CONTINUITY TERMINATION AND PREDECESSOR FINALITY
-[BLOCKING, CRITICAL PRIORITY]
+## Context / Problem
 
-Problem:
 v0.6.2 has no mechanism to end the predecessor identity stream. If the old
 root signs a document after a continuity that references an earlier sequence,
 verifiers that saw the new document reject the transition, and verifiers that
 didn't accept it. Different verifiers reach different conclusions. C5
 identifies the view-dependence problem.
+
+## Options considered
 
 Option A: IdentityTerminal object, signed by old root [PROPOSED in §16.2]
 
@@ -94,13 +74,17 @@ as simply a late arrival
       before the continuity it was accepted as ordinary identity state. You
       can't retroactively call it a fork.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (IdentityTerminal object). Mandatory for deterministic
 IdentityContinuity. Update §13.4 (separator registry) and §16.2 (continuity
 rules).
 
-Consequences:
-  - Add grid/identity-terminal/v1 to the separator registry.
+## Consequences
+
+- Add grid/identity-terminal/v1 to the separator registry.
   - OBJECTS.md: IdentityTerminal schema.
   - Verifier: step 8 of §14 defers continuity until terminal is held.
   - Test vectors: competing terminals, late N+1 documents, fork evidence.

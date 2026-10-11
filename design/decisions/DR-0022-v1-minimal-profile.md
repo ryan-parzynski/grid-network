@@ -10,40 +10,20 @@ linked_finding: L1
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — V1 minimal profile"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-22
-severity: High
-blocks: V1
-linked_finding: L1
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-22 — V1 minimal profile
+# D-22
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-22
-- Title: V1 minimal profile
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 L1](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-22: V1 MINIMAL PROFILE AND SCOPE [REFERENCE D-14, D-24]
-[BLOCKING, PLANNING DECISION]
+## Context / Problem
 
-Problem:
 v0.6.2 defines 19 object types, but not all are needed to prove the kernel.
 D-22 is the planning decision for what goes in V1 minimal (§13.5) vs V1.1 vs
 EXTENSION.
+
+## Options considered
 
 Option A: Minimal V1 profile [PROPOSED in §13.5]
 
@@ -87,13 +67,17 @@ Option B: Kitchen sink: all 19 types in V1
       set.
     - Distraction: relay economy, federation, recovery are not kernel.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (minimal profile). Draw a hard line around V1: identity,
 relationships, grants, leases, reachability, revocation, pairing. Everything
 else defers to V1.1 or extensions.
 
-Consequences:
-  - §13.4 and §13.5: finalize the object registry with V1 / V1.1 / RESERVED /
+## Consequences
+
+- §13.4 and §13.5: finalize the object registry with V1 / V1.1 / RESERVED /
     EXTENSION labels.
   - OBJECTS.md: write CDDL for the 9–11 V1 objects only initially.
   - design/EXTENSIONS.md: describe ServiceRecord, OperatorManifest,

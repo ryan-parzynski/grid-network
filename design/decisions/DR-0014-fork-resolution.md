@@ -10,37 +10,15 @@ linked_finding: —
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Fork resolution and dispute handling"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-14
-severity: High
-blocks: EXT
-linked_finding: —
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-14 — Fork resolution and dispute handling
+# D-14
 
 > **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-14
-- Title: Fork resolution and dispute handling
-- Severity: High
-- Blocks: EXT
-- Linked finding: [REVIEW-2026-10-11 —](../REVIEW-2026-10-11.md)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-14: FORK RESOLUTION AND DISPUTE HANDLING
-[MEDIUM PRIORITY, DEPENDS ON D-03, EXTENDS TO V1.1]
+## Context / Problem
 
-Problem:
 v0.6.2 includes a heavy StreamResolution mechanism for resolving forks at the
 stream level. It assumes a resolver is trusted, a conflict is recorded, and
 votes/timestamps select a winner. However, forks in authorization streams can
@@ -48,6 +26,8 @@ already be resolved by the root using KeyRevocation with pinning (D-04). For
 identity streams, root compromise has no in-band recovery anyway. D-03
 (explicit fork evidence) changes the landscape: forks are now first-class
 verifier outcomes, not errors to be resolved.
+
+## Options considered
 
 Option A: Defer StreamResolution to extension (V1.1)
 
@@ -89,13 +69,17 @@ Option B: Include StreamResolution in V1 [ORIGINAL v0.6.2]
       streams; identity forks are rare in well-managed systems).
     - Violates "fail closed on unresolved conflicts."
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (defer to V1.1). Focus V1 on proving the kernel works
 (identity, relationships, grants, leases, revocation, reachability). Add
 StreamResolution as a V1.1 extension if real deployments show a need.
 
-Consequences:
-  - §16.1: moved to design/EXTENSIONS.md (marked EXTENSION in separator
+## Consequences
+
+- §16.1: moved to design/EXTENSIONS.md (marked EXTENSION in separator
     registry).
   - §14: fork evidence is an outcome; no automatic resolution machinery in V1.
   - design/EXTENSIONS.md: StreamResolution will be specified there.

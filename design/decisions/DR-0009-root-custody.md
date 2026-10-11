@@ -10,41 +10,21 @@ linked_finding: H2/H3
 opened: 2026-10-11
 deciders: (pending acceptance)
 ---
----
-title: "Grid Network — Identity Root custody"
-status: PROPOSED (not ACCEPTED as of 2026-10-11)
-version: 2026-10-11 (review)
-date: 2026-10-11
-id: D-09
-severity: High
-blocks: V1
-linked_finding: H2/H3
-opened: 2026-10-11
-deciders: (pending acceptance)
----
 
-# D-09 — Identity Root custody
+# D-09
 
-> **Status:** PROPOSED — NOT ACCEPTED. Change only on merged PR with spec updates and CHANGELOG entry.
+> **Status:** PROPOSED — NOT ACCEPTED.
 
-## Metadata
 
-- ID: D-09
-- Title: Identity Root custody
-- Severity: High
-- Blocks: V1
-- Linked finding: [REVIEW-2026-10-11 H2/H3](../REVIEW-2026-10-11.md) (see section H2/H3 or search tag)
-- Date opened: 2026-10-11
-- Status: PROPOSED
 
-D-09: IDENTITY ROOT CUSTODY AND RELATIONSHIP KEY DELEGATION
-[HIGH PRIORITY, IMPACTS DEPLOYMENT AND KEY MANAGEMENT]
+## Context / Problem
 
-Problem:
 v0.6.2 intends the Identity Root to be offline, yet requires it to sign every
 RelationshipAssertion and RelationshipTermination. In practice, users will
 keep the root online to enable routine pairing, contradicting the design goal
 (H3). A separate Relationship Key role could allow the root to stay offline.
+
+## Options considered
 
 Option A: Introduce Relationship Key, delegated by root [PROPOSED in §5.3]
 
@@ -100,14 +80,18 @@ Option C: Relationship Key is optional; either root or delegated key can sign
       is unclear.
     - Does not actually solve H3 unless the implementation chooses to use it.
 
-Recommendation:
+## Recommendation (PROPOSED — NOT DECIDED)
+
+> **PROPOSED:**
+
 Accept Option A (Relationship Key, mandatory, delegated by root). Enables
 offline-root operation. Update §5.3 key-role table, §7 (RelationshipAssertion
 signing), and identity document schema to include a relationship_key_ids
 field.
 
-Consequences:
-  - OBJECTS.md: add relationship_key_ids to IdentityDocument; define
+## Consequences
+
+- OBJECTS.md: add relationship_key_ids to IdentityDocument; define
     delegation semantics.
   - §5.3: update key-role table; make Relationship Key V1.
   - §7 and §9 (if needed): update signer eligibility rules.
