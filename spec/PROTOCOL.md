@@ -1,3 +1,11 @@
+---
+title: "Grid Network Protocol Specification"
+status: DESIGN-REVIEW v0.6.2 — NOT IMPLEMENTATION-READY. NOT FROZEN.
+version: v0.6.2
+date: 2026-10-11
+pending_decisions: see ../design/DECISIONS.md
+---
+
 # Grid Network Protocol
 
 **Design Document — v0.6.2 (design-review)**

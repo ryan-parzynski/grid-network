@@ -1,3 +1,10 @@
+---
+title: "Grid Network — Object Encoding (v0.6.2)"
+status: DESIGN-REVIEW v0.6.2
+version: v0.6.2
+date: 2026-10-11
+---
+
 ## §2: CANONICAL CBOR PROFILE
 
 All protocol objects use CBOR (RFC 8949) with deterministic encoding constraints.
