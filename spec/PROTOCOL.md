@@ -1898,7 +1898,7 @@ A verifier accepts an `IdentityContinuity` object only when **all** of the follo
 3. `chain_hash` == `initial_chain_hash` of the successor stream.
 4. Both signatures in the two-element array are valid over the same `signature_input`:
    - `signature[0]` under `previous_root`.
-   - `signature[1]` under `new_root`.
+The second signature is under `new_root`.
 5. `previous_root` equals the verifier's currently trusted identity root for the peer, OR chains from that root through previously accepted `IdentityContinuity` objects.
 6. `previous_chain_hash` equals the verifier's accepted terminal `chain_hash` for the peer's predecessor identity stream.
 7. The successor stream is not already known to the verifier for that peer.
@@ -2880,7 +2880,6 @@ These have been considered and rejected. They appear in §62.10 as documented an
 - Dual-signature objects in a single stream
 - Global Sybil resistance in the protocol kernel
 - PoW as a foundational mechanism
-- "Raspberry Pis form a decentralized relay network" as a product pitch (demoted to example)
 - "Grid Network can burst around ISP throttling" as a feature framing (underlying observation retained as research note)
 
 ### 65.8 Deferral principle

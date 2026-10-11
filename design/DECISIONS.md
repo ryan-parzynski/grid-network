@@ -39,7 +39,7 @@ Significant design choices, their alternatives, and rationale.
 **Rationale:**
 - Patent clarity: GPL v3 makes patent grant explicit (critical for cryptographic protocols).
 - Anti-tivoization: Prevents hardware lockdown of modified software (important for decentralized identity).
-- Simplicity: One core rule — if you use our code, your modifications must be shared.
+One core rule: if code from this project is used, modifications must be shared.
 - Not AGPL: Complexity of "running a service" definition, Linus's principle (simple licenses are clearer), pragmatic (spec implementations not covered anyway).
 - Not Apache: "Anyone can do anything" vs GPL "community benefits from improvements."
 
@@ -128,9 +128,8 @@ Significant design choices, their alternatives, and rationale.
 
 ## 7. Naming Decisions
 
-### 7.1 "Grid Network" over "Grid Network" / "NotDNS"
 **Decision:** Final name is Grid Network. Domain separators use `grid/`. URIs use `grid://`.
-**Rationale:** "Grid Network" collides with existing libraries. "NotDNS" defined by negation. Grid Network is descriptive, scalable, uncollided.
+The name "Grid Network" was chosen because "Mesh" collides with existing libraries and "NotDNS" is defined by negation.
 **Source:** Project history in README.md.
 
 ---

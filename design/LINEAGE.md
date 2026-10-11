@@ -14,7 +14,6 @@ This document explains what Grid Network borrows from each of these systems, wha
 
 ### 1. Great systems are great
 
-Let's start by acknowledging what's true. The systems Grid Network learns from are excellent:
 
 - **DNS** is the most successful naming system in computing history. It runs the internet, it scales to billions of names, and it has been running for forty years. Whatever you think of ICANN, the underlying technology is a triumph.
 - **WireGuard** is the best-designed VPN protocol in existence. It's small, fast, auditable, and formally verified. It has replaced decades of accumulated complexity with a few thousand lines of code.
@@ -151,7 +150,7 @@ Grid Network also learns from:
 
 **SSH:** Trust-on-first-use is a valid security model for some contexts, but it's not sufficient for a general identity protocol. Grid Network provides explicit identity binding through pairing, with a clear verification path.
 
-**IPFS:** Content-addressed storage is powerful but hard to make useful for ordinary users. Grid Network doesn't try to solve content addressing — that's a different problem — but learns from IPFS's experience that "decentralized" is not automatically useful.
+IPFS provides content-addressed storage but is hard to make useful for ordinary users. Grid Network does not address content storage.
 
 **Kerberos:** Short-lived tickets with a central authority are a proven access-control model. Grid Network takes the "short-lived authorization" idea (leases) but removes the central authority (grants are verified locally).
 
@@ -197,7 +196,7 @@ Grid Network also learns from what these systems got wrong:
 
 ### 13. The composition is more than the sum
 
-The important claim is that Grid Network is not "DNS + WireGuard + BitTorrent" or "Tailscale but decentralized" or "Bitcoin for connectivity." It's a specific composition of these ideas and, where useful, their implementations, that produces a system with properties none of them has.
+Grid Network is not "DNS + WireGuard + BitTorrent" or "Tailscale but decentralized" or "Bitcoin for connectivity."
 
 Those properties are:
 
@@ -221,19 +220,6 @@ This is the framing that matters most for developers:
 > Grid Network is not a replacement for Tailscale, WireGuard, DNS, or BitTorrent. It's a layer above them that solves a problem they don't solve: portable identity and authorization for device connectivity.
 
 A developer who adopts Grid Network is not being asked to give up WireGuard (Grid Network uses it), give up DNS (Grid Network doesn't interfere with it), or give up anything they already have. They're being asked to add a layer that solves the identity-and-authorization problem they've been solving badly on their own.
-
-### 15. The developer pitch in one paragraph
-
-> You already offloaded user authentication to Auth0, Okta, or Google Sign-In. You should do the same for device connectivity. Grid Network is a shared protocol that handles identity, pairing, discovery, NAT traversal, relay fallback, and revocation. Your app calls a local grid agent, gets an authorized connection, and never thinks about keys, relays, or pairing again. It's not a replacement for WireGuard (it uses WireGuard), not a replacement for DNS (it doesn't try to be DNS), and not a replacement for anything else you're using. It's the layer above them that handles the parts you don't want to handle.
-
-### 16. Why this is a solved-problem framing
-
-The comparison to authentication is the strongest framing:
-
-- Fifteen years ago, every app built its own login. Today, almost none does.
-- Today, every app with a remote-access component builds its own connectivity. Grid Network lets them stop.
-
-The pattern is the same. The problem is the same shape. The solution is the same shape: a shared protocol, consumed as a service, that lets the application focus on what makes it different.
 
 ### 17. Integration options
 
@@ -349,15 +335,3 @@ The net effect is that the economic value of connectivity shifts from "owning th
 ### 27. The one-paragraph summary
 
 Grid Network is not a competitor to the systems it learns from. It uses WireGuard for transport, borrows DNS's resolver model for reachability, learns from BitTorrent's peer coordination, applies Bitcoin's insight about cryptographic trust, adopts Tailscale's product polish, and takes Headscale's lesson about community self-hosting. The result is not "DNS but decentralized" or "Tailscale but open" — it's a new composition that produces properties none of these systems has: portable identity, local verification, untrusted infrastructure, polished UX, developer integration, and sustainable funding. If it succeeds, it won't be because it beat anyone. It will be because it made something previously hard into something that just works.
-
-### 28. The developer pitch
-
-You offloaded authentication. Offload this too. Grid Network isn't a replacement for WireGuard, DNS, or anything else you're using. It's the layer above them that handles identity, pairing, discovery, relay fallback, and revocation — the parts you've been solving badly on your own. Your app calls a local agent, gets an authorized connection, and stops thinking about connectivity. That's the same calculation you made when you decided not to build your own login system.
-
-### 29. The user pitch
-
-Your devices, your identity, your relationships. Not rented. Not revocable by a vendor. Not dependent on any single provider. Works like email: anyone can run infrastructure, anyone can switch providers, nobody needs permission. And it's simple enough that you don't have to think about any of it.
-
-### 30. The commercial pitch
-
-Buy priority relay capacity for your users. When they're not using it, your capacity helps hobbyists and small communities connect. A share of your subscription funds the protocol itself. You get SLA-backed connectivity; the ecosystem gets funded; nobody owns the network.
