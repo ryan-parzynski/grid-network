@@ -19,7 +19,7 @@ This document explains what Grid Network borrows from each of these systems, wha
 - **WireGuard** is the best-designed VPN protocol in existence. It's small, fast, auditable, and formally verified. It has replaced decades of accumulated complexity with a few thousand lines of code.
 - **BitTorrent** demonstrated that millions of peers could coordinate without a central server, that bandwidth could be shared peer-to-peer, and that a distributed swarm could be more efficient than centralized distribution.
 - **Bitcoin** demonstrated that strangers could agree on a shared history without trusting each other, using cryptographic proofs and economic incentives.
-- **Tailscale** demonstrated that Grid Network VPNs could be pleasant to use. It made remote connectivity a consumer-friendly product rather than a sysadmin chore.
+- **Tailscale** demonstrated that mesh VPNs could be pleasant to use. It made remote connectivity a consumer-friendly product rather than a sysadmin chore.
 - **Headscale** demonstrated that a proprietary coordination service could be reimplemented by the community, and that self-hosting was possible even for systems not designed for it.
 
 Each of these systems succeeded at something. Grid Network takes those successes seriously.
@@ -249,7 +249,7 @@ But if the protocol succeeds, disruption is a consequence. Not because Grid Netw
 
 The commercial entities that get disrupted are those whose business model depends on being the *coordination authority*.
 
-- **Managed Grid Network VPNs.** Their value proposition is partly "we make connectivity easy" (which Grid Network also does) and partly "we're the permanent coordinators of your network" (which Grid Network doesn't need). The first part survives; the second part doesn't.
+- **Managed mesh VPNs.** Their value proposition is partly "we make connectivity easy" (which Grid Network also does) and partly "we're the permanent coordinators of your network" (which Grid Network doesn't need). The first part survives; the second part doesn't.
 
 - **Tunnel services.** Their value proposition is "we get you through the firewall." Grid Network still needs relays for the hard cases, but the relay layer is replaceable. What was a sticky platform becomes a competitive market.
 
