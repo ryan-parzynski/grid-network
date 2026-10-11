@@ -1,8 +1,5 @@
 # Grid Network — Relay & Rendezvous Operations
 
-**Status:** Complete draft  
-**Version:** 1.0
-
 ---
 
 ## Core Architecture: Direct-First Preference Order

@@ -1,12 +1,5 @@
----
-title: "Grid Network — Object Encoding"
-version: "0.2"
-status: "Draft (§1–§5 complete, §6–§10 pending)"
-depends_on: "PROTOCOL.md v0.6.2"
----
 # Grid Network — Object Encoding (OBJECTS.md v0.2)
 
-**Status:** §1–§5 complete, §6–§10 pending
 **Depends on:** PROTOCOL.md v0.6.2
 **Purpose:** Byte-level encoding and cryptographic constructions for all signed objects
 
@@ -31,7 +24,7 @@ This document defines the byte-level representation and cryptographic constructi
 - The semantics of domain_separator
 - Positive and negative test vectors
 
-Object schemas are defined in §6 (pending). Conformance requirements are defined in §12 (pending).
+
 
 Normative terminology:
 - MUST, MUST NOT, SHOULD, SHOULD NOT, MAY as defined in RFC 2119
@@ -492,9 +485,7 @@ A StreamResolution MUST be signed by an authority above the disputed stream in t
 
 ---
 
-## §6: OBJECT SCHEMAS (PENDING)
-
-**Status:** To be drafted.
+## §6: OBJECT SCHEMAS
 
 This section will define, for each object type:
 - Exact field names
@@ -543,9 +534,7 @@ The following decisions are frozen and will be reflected in all schemas:
 
 ---
 
-## §7: STREAM RULES (PENDING)
-
-**Status:** To be drafted.
+## §7: STREAM RULES
 
 This section will define:
 - Sequence spaces and their identifiers
@@ -558,9 +547,7 @@ This section will define:
 
 ---
 
-## §8: CANONICAL FORMS (PENDING)
-
-**Status:** To be drafted.
+## §8: CANONICAL FORMS
 
 This section will provide byte-exact canonical forms for each object type.
 
@@ -723,9 +710,7 @@ Total: 53+ test vectors
 
 ---
 
-## §12: CONFORMANCE REQUIREMENTS (PENDING)
-
-**Status:** To be drafted.
+## §12: CONFORMANCE REQUIREMENTS
 
 An implementation conforms to Grid Network v0.6.2 if:
 1. It implements all normative requirements from PROTOCOL.md
@@ -739,7 +724,8 @@ An implementation conforms to Grid Network v0.6.2 if:
 
 ---
 
-
 §6–§10: To be specified.
 
 *End of OBJECTS.md v0.2 (partial)*
+
+Sections 6 through 12 are not yet specified.

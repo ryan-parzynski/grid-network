@@ -1,8 +1,5 @@
 # Grid Network — Design Rationale
 
-**Status:** Complete draft  
-**Version:** 2.0
-
 ---
 
 ## Executive Summary
@@ -327,7 +324,6 @@ That is why the project could matter: it could make self-hosted services feel le
 Sources
 [1] pasted_text_1791098518.txt https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/36123622/9332606c-9145-476f-9505-dd9f1576fc85/pasted_text_1791098518.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Checksum-Mode=ENABLED&X-Amz-Credential=ASIA2F3EMEYE3XZFYTVF%2F20261004%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261004T072514Z&X-Amz-Expires=2355&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEPj%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJIMEYCIQCoUcg7Gk%2B7oVVKEm8phJSVhxTZtJ9Qu1OW%2BIO5j7796AIhAIoBRPte3Lxgf7KUHm%2Bkx9towksSCEJPZqYumPU8U5KZKokFCMD%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEQARoMNjk5NzUzMzA5NzA1IgzEfonZF5AcFIdHWwcq3QRuZCKhlKPDEeLnn29vJvx%2B0giU%2FtvYrI0JMMTcX6%2FfytqtKuoyP%2Fn5Wl2cwnEE39fy%2Bu%2FdUwf0LxZPuLgrvgXFKd6i5k%2F8avjifBJp%2B8j38GNHCxFQjHD8W7qUSM0zZZjhY8RnqX6i5w8aQ1DO9MJE7srgLj5B1kKp%2FXy1fWECDDBBCDF9xKj9H5PF1prekXrbCzLnxhOTxS5H9laajcjNFExbTGoXk4%2BpwE8qhTCXkgOZx%2BK0anZrIglN1jbXT%2BI%2ByZCEsYc%2FpFa1QuPMKo8CMxtUwS4Diwx5mQQYCr%2BCQLPih%2Bp8w075d6ZgSyFoPuvandgfV65CB%2BFu6FSOLyPCUBsAQP1RwPWNbRhS8r%2BMzBdIrsCHyj%2BV%2FnqmgCRam9igLG8g7FNhQNWXVqGPbDtG68IN%2BVWVWHItZB1ex60ehLtMuQAyWMpYhkfL5%2FwBsNxh9xKgR5mYCFD9YZKzzrPfUunYSvz4b1RHx9KTefRxBjkMLz7ueiYdgz3%2Fto2aQsqKznmrXn85Qs1h5fH%2Fa4MLDTNrWmT14xIr6DRMJopiE1snmB9Uptmu4qC3ld9ZwKfSpINiJ71v4m6JA6sQW6Kq9%2F9yecRYdBdiuol%2FQgdcatmt3M8M3w%2FSOkddZFol%2BglpqTEfHOGka4GbQJQ%2FFPqoFw%2BqJ4OEe2UPDZ6s5iF5ybAgmtntaD%2Bk%2FzPOmU9Yt9kP24Op3%2BJI9vWF5qEQoqsjHfpin7vfu8SdmClQvRbypxvfC0qkMav%2B%2FqXIXkgK0IcINf915IzeaMg8y5OugVi3rblTB%2B2Pfe01LI3ODTC69YfWBjqXAaaKkOKSWrJAlvcl7xfHTA8meAOyCabw7n42z8aYGcTMma2ryJg4AKKuFNmfHrqr1QB1Us7yuN5ZfdkOue8cldR8F9zMvFFW5nWt%2BVAq4epSJZ6lXq%2Fd7syW%2BUknvJAabe4Jwrr%2BaHu64Us7Kz5YdBEk8BpaT7765DEH0c0EdeoF8Z1ghGyaU2Uy8M8NzHO7%2FynuOW9cwBE%3D&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=7e1b4bf11f6a510516bf7b2f12ea2b8d9ffbc5c0f24dd6785c3c5730de2af0ef
 
-
 ---
 
 ## Future-Proofing
@@ -647,7 +643,6 @@ And an anonymity implementation can say:
 “Here’s a different transport path that happens to use several Grid Network relays.”
 
 That’s the architecture you want: hard things later should be new layers, not excuses to break the kernel.
-
 
 ---
 

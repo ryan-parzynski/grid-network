@@ -1,8 +1,5 @@
 # Grid Network — Connectivity Architecture
 
-**Status:** Draft (extracted from PROTOCOL.md §10, Part 10, Part 15)
-**Version:** 1.0
-
 ---
 
 ## §1: DIRECT-FIRST PREFERENCE ORDER

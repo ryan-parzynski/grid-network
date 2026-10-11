@@ -13,22 +13,41 @@ Reference implementations and implementation guides.
 
 ## Current Status
 
-Phase 1 (Reference Implementation) not yet started. See `../ROADMAP.md` for timeline.
+Phase 0 (Documentation) complete. Phase 1 (Reference Implementation) not yet started. See `../ROADMAP.md` for timeline.
 
-The prototype outline in `../design/PROTOTYPE.md` describes the recommended vertical-slice approach:
-- Phase 0: Canonical CBOR + crypto (byte-level foundation)
-- Phase 1: Object/stream engine (state integrity)
-- Phase 2: Identity (cryptographic identity)
-- Phase 3: Relationships (mutual recognition)
-- Phase 4: Authorization (trust decisions)
-- Phase 5: Local agent (usable abstraction)
-- Phase 6: Reachability (endpoint discovery)
-- Phase 7: Direct transport (real connectivity)
-- Phase 8: Rendezvous (decentralized discovery)
-- Phase 9: Relay (connectivity fallback)
-- Phase 10: Application SDK (real application integration)
-- Phase 11: Pairing (human-friendly enrollment)
-- Phase 12: Production hardening (real deployment)
-- Phase 13+: Enterprise/privacy/etc. (ecosystem expansion)
+## Phase Model (from ROADMAP.md)
 
-Each phase should leave a working artifact. Don't implement the spec in document order — implement in dependency order (crypto → objects → streams → identity → authorization → agent → network → discovery → relay → applications).
+The implementation follows the roadmap phases:
+
+| Phase | Timeline | Focus |
+|-------|----------|-------|
+| **Phase 0** | Q4 2024 | Documentation (complete) |
+| **Phase 1** | Q1–Q2 2025 | Reference Implementation — Core agent, local API, CLI tools, test suite, 2+ independent implementations |
+| **Phase 2** | Q2 2025 | Local Connectivity — LAN discovery, local relay, device pairing UI, cross-platform support |
+| **Phase 3** | Q2–Q3 2025 | Remote Reachability — NAT traversal, candidate gathering, 70%+ direct connection success |
+| **Phase 4** | Q3 2025 | Coordinator Resilience — Multiple rendezvous, replica behavior, recovery manifests |
+| **Phase 5** | Q3–Q4 2025 | Relay Fallback — Relay protocol, tickets, bandwidth quotas, priority classes, PROTOCOL.md freezes as v1.0 |
+| **Phase 6** | Q4 2025 – Q1 2026 | Mobile Integration — iOS/Android agents, background execution, battery <5%/day |
+| **Phase 7** | Q1–Q2 2026 | Community Infrastructure — Operator tooling, capacity declarations, federation, credit system |
+| **Phase 8** | Q2+ 2026 | Advanced Features — Multi-hop relay, multipath, privacy transport, threshold recovery |
+
+## Implementation Approach
+
+Each phase should leave a working artifact. Don't implement the spec in document order — implement in dependency order:
+
+1. Canonical CBOR + crypto (byte-level foundation)
+2. Object/stream engine (state integrity)
+3. Identity (cryptographic identity)
+4. Relationships (mutual recognition)
+5. Authorization (trust decisions)
+6. Local agent (usable abstraction)
+7. Reachability (endpoint discovery)
+8. Direct transport (real connectivity)
+9. Rendezvous (decentralized discovery)
+10. Relay (connectivity fallback)
+11. Application SDK (real application integration)
+12. Pairing (human-friendly enrollment)
+13. Production hardening (real deployment)
+14. Enterprise/privacy/etc. (ecosystem expansion)
+
+The vertical-slice approach is detailed in `../design/DECISIONS.md` and the phase model in `../ROADMAP.md`.

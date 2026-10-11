@@ -1,7 +1,5 @@
 # Grid Network — Commercial Model
 
-**Status:** Complete draft  
-
 ## Executive Summary
 
 Grid Network's commercial model exists to fund the protocol's maintenance, not to extract value from users. Every participant — free user, contributor, commercial operator, enterprise — makes the network more valuable to every other participant.
@@ -247,7 +245,6 @@ What survives:
 
 # Grid Network — 
 
-**Status:** Companion to the 
 **Purpose:** Provide the specific details, worked examples, and elaboration that the  summarizes. Where this document and the  differ, the  governs.
 
 ---

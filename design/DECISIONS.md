@@ -10,31 +10,26 @@ Significant design choices, their alternatives, and rationale.
 **Decision:** Do not include a global DHT for coordinator discovery in V1.
 **Alternatives considered:** Kademlia-based DHT, Mainline DHT, custom DHT.
 **Rationale:** DHTs introduce complexity, Sybil vulnerability, and operational burden. V1 relies on signed coordinator manifests with explicit federation. DHT can be added as a V2 extension without changing the core object model.
-**Status:** Deferred to V2.
 
 ### 1.2 Removed: Mandatory Homeserver/Coordinator Model
 **Decision:** No single coordinator is required. Coordinators are replaceable infrastructure.
 **Alternatives considered:** Matrix-style homeserver model, mandatory coordinator per identity.
 **Rationale:** Single coordinator creates availability dependency and concentration of power. Replaceable coordinators enable graceful degradation.
-**Status:** Adopted in V0.1, confirmed.
 
 ### 1.3 Removed: XOR Obfuscation for Reachability Records
 **Decision:** Use authenticated encryption (COSE/HPKE) instead of XOR with shared key.
 **Alternatives considered:** XOR with QR-shared key, plaintext records.
 **Rationale:** XOR provides no meaningful confidentiality (key shared with all QR recipients), cannot provide independent revocation, and is not standard cryptographic practice.
-**Status:** Removed in V0.6.1.
 
 ### 1.4 Removed: Unrestricted Global Gossip
 **Decision:** Bounded anti-entropy only. No recursive uncontrolled fan-out.
 **Alternatives considered:** Full gossip protocol, epidemic broadcast.
 **Rationale:** Unrestricted gossip scales poorly and creates unbounded resource consumption. Bounded replication with explicit quotas achieves resilience without resource exhaustion.
-**Status:** Adopted in V0.6.1.
 
 ### 1.5 Narrowed: Identity Continuity to V1
 **Decision:** IdentityContinuity requires dual signatures from both roots.
 **Alternatives considered:** Single-root rotation, threshold-based rotation, social recovery only.
 **Rationale:** Dual signatures provide cryptographic proof of both parties' consent. Threshold and social recovery deferred to V2.
-**Status:** Frozen in V0.6.2.
 
 ---
 
@@ -47,7 +42,6 @@ Significant design choices, their alternatives, and rationale.
 - Simplicity: One core rule — if you use our code, your modifications must be shared.
 - Not AGPL: Complexity of "running a service" definition, Linus's principle (simple licenses are clearer), pragmatic (spec implementations not covered anyway).
 - Not Apache: "Anyone can do anything" vs GPL "community benefits from improvements."
-**Status:** Finalized.
 
 ---
 
