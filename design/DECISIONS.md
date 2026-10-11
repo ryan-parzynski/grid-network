@@ -134,4 +134,119 @@ The name "Grid Network" was chosen because "Mesh" collides with existing librari
 
 ---
 
+
+
+## 8. Kernel vs. Extension Boundaries
+
+The Grid Network architecture separates a stable protocol kernel from optional extensions. The kernel provides stable primitives; extensions compose those primitives without modifying the kernel.
+
+### 8.1 Kernel vs. Extension Boundary
+
+The kernel provides stable primitives. Extensions compose those primitives.
+
+| Extension | Kernel Compatibility | Implementation Difficulty |
+|-----------|---------------------|---------------------------|
+| Relay capability advertisement | Excellent | Low–medium |
+| Dynamic relay/path selection | Excellent | Medium |
+| Commercial relay services | Excellent | Low–medium |
+| Enterprise groups/roles | Excellent | Medium |
+| SSO / SCIM integration | Excellent | Medium |
+| Device posture | Excellent | Medium |
+| Audit/SIEM | Excellent | Medium |
+| JIT / step-up authorization | Excellent | Medium |
+| PAM gateways | Excellent | Medium–high |
+| Workload identities | Excellent | Medium |
+| Multi-hop relay | Good | Medium–high |
+| Onion anonymity | Good, but substantially harder | High |
+| Strong traffic-analysis resistance | Possible | Very high |
+
+The distinction is important: enterprise functionality is mostly policy layered over the kernel. Anonymity requires new cryptographic/network machinery.
+
+### 8.2 Enterprise Functionality as Policy Layers
+
+Enterprise functionality is mostly policy layered over the kernel. The existing model already has the right primitives:
+
+Identity
+   ↓
+Relationship
+   ↓
+Authorization
+   ↓
+Grant
+   ↓
+Lease
+   ↓
+Connection
+
+Enterprise systems can add statements around those primitives.
+
+For example:
+
+Organization
+    ↓
+Membership
+    ↓
+Group / Role
+    ↓
+Policy
+    ↓
+Authorization
+    ↓
+Existing Grant / Lease
+
+A future enterprise layer could simply say:
+
+Alice is a member of Engineering.
+
+Engineering may request capability X.
+
+Alice’s device satisfies posture requirement Y.
+
+This access requires approval from Z.
+
+The resulting authorization still ultimately becomes the same kind of authorization the kernel already understands.
+
+### 8.3 Implementation Difficulty Assessments
+
+Future work can be classified into three buckets:
+
+**Mostly straightforward extensions** (approachable once the kernel is stable):
+- relay capabilities
+- path requirements
+- load-aware relay selection
+- organizations
+- groups
+- roles
+- enterprise policy
+- SSO/SCIM adapters
+- device posture assertions
+- audit events
+- workload identities
+- service classifications
+- managed relay infrastructure
+
+**Significant but architecturally clean** (require more engineering but don't threaten the kernel):
+- JIT authorization
+- delegated administration
+- break-glass access
+- PAM gateways
+- multi-organization relationships
+- sophisticated policy engines
+- high-availability relay networks
+- multipath connectivity
+
+**Cryptographically/networking intensive** (deserve their own serious protocols/specifications):
+- Tor-like anonymity
+- strong traffic-analysis resistance
+- metadata protection
+- anonymous credentials
+- private discovery
+- mix networks
+- sophisticated anti-Sybil mechanisms
+
+The hard part is the foundation. Getting canonical serialization, signatures, sequence spaces, chain semantics, identity continuity, authority boundaries, relationship semantics, revocation, freshness, leases, and deterministic verification exactly right is more foundational than adding an enterprise dashboard later.
+
+Once that foundation is stable, an enterprise implementation doesn’t have to reinvent the protocol. It can essentially say: “Here’s our organization policy. Here’s our signed device posture. Here’s our role. Here’s our authorization decision.” An anonymity implementation can say: “Here’s a different transport path that happens to use several Grid Network relays.” That’s the architecture: hard things later should be new layers, not excuses to break the kernel.
+
+
 *End of Design Decisions*

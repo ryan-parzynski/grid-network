@@ -62,6 +62,49 @@ Relays advertise capabilities rather than hardware identity.
 
 Profiles are descriptive capability groupings, not separate protocol architectures.
 
+
+### 2.3 Relay Capability Advertisement (Future Extension)
+
+The relay capability advertisement mechanism allows relays to publish their current operational capabilities and capacity for client path selection.
+
+### RelayNodeRecord
+
+A RelayNodeRecord is a signed object published by a relay node to advertise its capabilities and current operational state.
+
+Fields:
+- `relay_node_id` — unique identifier for the relay node
+- `operator_id` — identity of the relay operator
+- `endpoint` — network endpoint (address, port, transport)
+- `capabilities` — set of capability profile identifiers (BASIC, HIGH_CAPACITY, LOW_LATENCY, LONG_LIVED, COMMUNITY, PRIVACY)
+- `capacity` — current capacity declaration:
+  - `max_concurrent_sessions` — maximum concurrent sessions
+  - `aggregate_bandwidth_bps` — aggregate bandwidth in bits per second
+  - `max_per_session_bandwidth_bps` — maximum per-session bandwidth
+  - `max_bytes_per_session` — maximum bytes per session
+  - `max_session_duration_seconds` — maximum session duration
+- `availability` — availability declaration:
+  - `hours_per_day` — hours per day the relay is available
+  - `days_per_week` — days per week the relay is available
+  - `uptime_percentage` — expected uptime percentage
+- `supported_transports` — set of supported transport protocols (WireGuard, QUIC, TCP, etc.)
+- `privacy_capabilities` — privacy-oriented capabilities (e.g., onion forwarding, multi-hop support)
+- `operator_policy` — operator access and contribution policy:
+  - `access` — public, relationship-required, or operator-approved
+  - `contribution` — free, paid, or reciprocal
+  - `price` — pricing information if applicable
+- `geographic_metadata` — geographic and network metadata:
+  - `region` — geographic region
+  - `country` — country code
+  - `network_asn` — autonomous system number
+  - `latitude` — optional latitude
+  - `longitude` — optional longitude
+- `issued_at` — timestamp of record creation
+- `expires_at` — optional expiration timestamp
+
+RelayNodeRecord is signed by the Relay Node Key and published to rendezvous servers. Clients use this information for path selection without centralized load balancers.
+
+
+
 ---
 
 ## 3. Operational State
