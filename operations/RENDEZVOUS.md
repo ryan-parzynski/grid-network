@@ -1,281 +1,217 @@
-# Grid Network — Relay & Rendezvous Operations
+# Grid Network — Rendezvous Operation Guide
+
+**Revision:** 2.1
+**Protocol version:** v0.6.2
+
+**Repository path:** `operations/RENDEZVOUS.md`
+
+This document is non-normative. It describes how to operate a
+rendezvous server for the Grid Network. Where this document and the
+Protocol Specification conflict, the Protocol Specification governs.
 
 ---
 
-## Core Architecture: Direct-First Preference Order
+## 1. What a rendezvous server is
 
-When connecting to a peer, the verifier tries these approaches in order:
+A rendezvous server stores ephemeral protocol state on behalf of peers.
+It accepts reachability records, identity documents, and continuity
+objects, and serves them on request. It does not define identity,
+grant authorization, decide policy, or store authorization state.
 
-1. **Local network (mDNS)** — Broadcast mDNS query for peer. If found: try direct connection on LAN. Latency: <10ms typical.
-2. **Direct connection (public IP)** — Obtain peer's public IP from reachability record. Try direct P2P connection. Latency: 50-500ms depending on geography.
-3. **NAT traversal (STUN/ICE)** — Peer is behind NAT, has no public IP. Use STUN to detect NAT characteristics. Attempt hole-punching. Latency: 200-1000ms. Success rate: 70-85% depending on NAT type.
-4. **Relay (fallback)** — Direct connection failed. Use a relay to forward traffic. Latency: 100-500ms. Cost: Consumes relay bandwidth/credits.
-5. **Alternative relay** — Primary relay failed or overloaded. Try secondary relay.
-
-**Design principle:** Always try cheaper/faster options first.
+A rendezvous server is replaceable. A peer that uses one may switch to
+another without changing identity, relationships, or grants.
 
 ---
 
-## Relay Capability Model
+## 2. What a rendezvous server stores
 
-A relay is NOT a proxy. It is a pair-bound packet forwarder.
+| Object type | TTL | Notes |
+|---|---|---|
+| `ReachabilityRecord` | `DEFAULT_REACHABILITY_TTL` | Ephemeral. Not persisted beyond TTL. |
+| `IdentityDocument` | Until superseded | The most recent document for each Peer ID. |
+| `IdentityContinuity` | Retained | Required so verifiers can walk from an old anchor. |
 
-### What a relay does:
-
-```
-Device A (203.0.113.1:51820)
-    │
-    │ Encrypted packet
-    │ From Device A to Device B
-    ▼
-Relay Server
-    │ Sees: packet_size, timestamp, device_a_id, device_b_id
-    │ Does NOT see: packet content (encrypted)
-    │ Does NOT see: which application
-    │
-    ▼ Forwards packet
-Device B (192.0.2.50:51820)
-```
-
-Relay bandwidth is metered by relay ticket (bytes/duration).
-
-### Relay priority classes (from commercial model):
-
-- **Free ticket:** Best-effort bandwidth
-- **Standard ticket:** 10 Mbps minimum
-- **Priority ticket:** 50 Mbps minimum
-- **Dedicated ticket:** Reserved capacity
-
-### Relay CANNOT:
-- Decrypt content
-- Modify packets
-- Forge signatures
-- Impersonate either party
-- Create new relationships
-- Issue grants
-
-### Relay CAN:
-- See packet counts
-- Observe traffic patterns
-- Enforce byte limits
-- Apply priority queuing
+The server does not store grants, leases, relationships, or any other
+authorization state.
 
 ---
 
-## Path Abstraction & Diversity
+## 3. Publication endpoints
 
-A "path" is a route from source to destination. Verifier maintains path state: reachability hints, success rates, latencies.
+The wire protocol is specified in a future revision. The endpoints
+described below are the interface a rendezvous server exposes to
+peers.
 
-### Why multiple relays?
-Single relay = single point of failure. If relay goes offline/overloaded/censors, peer becomes unreachable.
+### 3.1 Reachability records
 
-### Diversity types:
+- `POST /v1/reachability` — publish a reachability record.
+- `GET /v1/reachability/{device_id}` — fetch the current record for a
+  device.
 
-**Geographic diversity** — Relays in different regions (NYC, Virginia, NJ) provide redundant paths.
+### 3.2 Identity documents
 
-**Provider diversity** — Home Pi relay + AWS + Linode + DigitalOcean. If AWS fails, others continue.
+- `POST /v1/identity` — publish an identity document. May include the
+  continuity chain from the publisher's previous anchor.
+- `GET /v1/identity/{peer_id}` — fetch the current document for a
+  peer.
+- `GET /v1/identity/{peer_id}/chain` — fetch the continuity chain.
 
-**Autonomous System (AS) diversity** — Relays in different BGP ASes (Cogent, Telia, Level3, Global Crossing). Failure at any one AS → other paths continue.
+### 3.3 Operator manifest
 
-**Network redundancy** — Primary: direct; Secondary: relay 1; Tertiary: relay 2 (different ISP); Quaternary: relay 3 (different country).
+- `GET /v1/manifest` — fetch the rendezvous operator's manifest,
+  declaring `serves_identity_state` and `current_relay_authority_key`.
 
-Verifier tries all automatically. User never explicitly chooses.
-
----
-
-## Relay Load Distribution (Commercial)
-
-Commercial relay operators provision N Gbps capacity.
-
-```
-Total: 100 Gbps
-
-Free users: 20 Gbps (first-come-first-served)
-Standard users: 40 Gbps (reserved)
-Priority users: 30 Gbps (reserved)
-Dedicated: 10 Gbps (reserved per customer)
-
-Idle capacity from Standard/Priority/Dedicated users flows to Free pool.
-
-Result: Free users get opportunistic access to 60 Gbps when Standard/Priority don't use it fully.
-```
-
-This model:
-- Ensures free users always have capacity
-- Rewards paid users with guaranteed bandwidth
-- Doesn't penalize paid users for overbooking
-- Encourages overprovisioning (more capacity = more free benefit)
+All endpoints use HTTPS with certificate verification.
 
 ---
 
-## Geographic Diversity & Scarcity Multipliers
+## 4. Trust model
 
-Latency depends on geography:
-- Same city: 5-20ms
-- Same region: 20-100ms
-- Continent: 100-300ms
-- Intercontinental: 200-500ms
+A rendezvous server is untrusted. It can:
 
-Scarce regions (rural, less-developed) have fewer relays.
+- Serve stale records.
+- Serve false records.
+- Deny service.
+- Observe query patterns.
 
-Solution: Geographic credit multiplier.
+A rendezvous server cannot:
 
-```
-Relay in NYC (abundant): 1 credit per GB
-Relay in rural Nebraska: 3 credits per GB
-Relay in remote region: 5+ credits per GB
-```
+- Forge identity documents.
+- Forge reachability records.
+- Change authorization.
+- Impersonate a peer.
+- Decrypt content.
 
-Incentivizes relay operators to deploy in underserved areas.
-
----
-
-## Home Relays (Raspberry Pi 3B Analysis)
-
-### Why Raspberry Pi?
-
-| Spec | Value |
-|------|-------|
-| CPU | Quad-core 1.2 GHz ARM |
-| RAM | 1 GB |
-| Network | 1 Gbps Ethernet |
-| Power | 5W USB |
-| Cost | $35 (one-time) |
-| Ongoing | ~$2/month electricity |
-| MTBF | 5-10 years (no moving parts) |
-
-### Relay performance on Pi 3B:
-- Throughput: 100-200 Mbps (WireGuard encrypted)
-- Concurrent connections: 50-200 depending on packet size
-- Bandwidth consumption: Residential home upload (typical 5-20 Mbps)
-- Operational reliability: 99.5% uptime with proper setup
-
-### Why this works:
-Most home internet has asymmetric bandwidth:
-- Download: 100-500 Mbps
-- Upload: 5-50 Mbps
-
-A Raspberry Pi relay maximizes upload utilization:
-- Idle time: relay receives other peers' traffic
-- Peak time: relay relays other peers' traffic
-- User's own traffic: uses direct connection (doesn't need relay)
-
-### Economic model:
-- Pi operator gets credit for relayed bytes
-- Earns credits at ~$1/month (for typical usage)
-- Breaks even in 35 months
-- Then provides free relay for their peers
-
-### Community effect:
-- 10,000 Pi relays = 1-2 Tbps potential capacity
-- Deployed globally by hobbyists
-- No capital expenditure from Grid operators
+The protection against a stale record is the record's signature and
+`identity_sequence`. The protection against a false record is
+signature verification. The protection against denial of service is
+multiple providers.
 
 ---
 
-## Bandwidth Aggregation
+## 5. Persistence
 
-Problem: Single relay handles ~100 Mbps. Some users need 1 Gbps+.
+A rendezvous server should persist its state to durable storage. The
+state is signed by its publishers; persistence is a convenience for
+availability, not a trust mechanism.
 
-Solution: Aggregate across multiple relays.
-
-```
-User has:
-  Pi relay at home: 100 Mbps
-  VPS relay 1: 200 Mbps
-  VPS relay 2: 200 Mbps
-  VPS relay 3: 200 Mbps
-
-Total aggregated capacity: 700 Mbps
-```
-
-Verifier connects to first relay, gets some bandwidth. If more needed, opens second relay connection. Load distribution across multiple relays. Cost scales with usage.
+If a rendezvous server loses its state, its peers republish. Peers
+should detect server failure and republish to an alternative server.
 
 ---
 
-## Relay & Rendezvous Interaction
+## 6. Rate limiting
 
-Relay and rendezvous are separate services.
+A rendezvous server should rate-limit:
 
-| Rendezvous | Relay |
-|------------|-------|
-| Stores reachability hints (IP:port) | Forwards encrypted packets |
-| Serves hints on query | Pair-bound (specific source → destination) |
-| Size: Tiny (URLs) | Size: Large (packets) |
-| Bandwidth: Low (lookups only) | Bandwidth: High (data forwarding) |
+- Publications per peer per interval.
+- Lookups per requester per interval.
+- Failed authentications per source per interval.
 
-### Use cases:
-
-| Case | Rendezvous | Relay |
-|------|------------|-------|
-| Both peers have public IP | Not needed | Not needed |
-| One peer is NAT'd | Needed | Maybe (if NAT punch fails) |
-| Both peers are NAT'd | Needed | Probably needed |
-| Peer is offline | Serves stale hint if cached | No point |
+The rate limits are policy; the protocol does not define them.
+Defaults are in `spec/PARAMETERS.md`.
 
 ---
 
-## Multipath (Future)
+## 7. Capacity planning
 
-Not in v0.6.2. Planned for v1.5 or v2.0.
+State per peer:
 
-**Benefits:** Redundancy, load balancing, congestion avoidance, resilience.
+- Reachability records are a few hundred bytes each. A single record
+  per device.
+- Identity documents are larger, a few kilobytes each, with growth
+  proportional to the number of devices and services the principal
+  has.
+- Continuity chains grow with the number of root rotations. A chain of
+  ten rotations is a few tens of kilobytes.
 
-**Design constraints (from v0.6.2):**
-- Every relay ticket must specify throughput
-- Every relay ticket must be pair-bound
-- Every relay must accept admission control
-- Reachability records must support multiple endpoints
-- Verifier must be free to choose which relay to use
-- No relay architecture decision precludes multipath
+For a server handling a million peers with one device each, storage is
+on the order of a few gigabytes. Publication traffic is proportional
+to the number of peers times the publication frequency. Reachability
+records are republished once per TTL. Identity documents are
+republished only when they change.
 
----
-
-## Rendezvous Model
-
-Rendezvous provides discovery. It has **no identity authority**.
-
-### Roles:
-- **Publication** — Accepts authorized reachability publications
-- **Replica** — Stores signed copies
-- **Cache** — Fetches and caches on demand
-- **Bootstrap** — Helps peers find manifests
-- **Relay coordinator** — Issues relay tickets
-- **Freshness source** — Attests to authorization state (only when explicitly authorized)
-
-### Rendezvous invariant (normative):
-> Neither a Principal Rendezvous Manifest nor an OperatorManifest grants authority over any principal, service, authorization stream, or reachability state.
-
-### Trust model:
-A malicious rendezvous may provide stale/false endpoints, suppress info, observe metadata, or attempt DoS. It MUST NOT forge identity, authorization, or revocation; create a valid lease; or decrypt transport traffic.
+Bandwidth is dominated by lookups, not publications, at typical use
+ratios.
 
 ---
 
-## Relay Deployment Guide (Home Pi)
+## 8. Availability
 
-### Hardware:
-- Raspberry Pi 3B: $35
-- Ethernet cable (Cat5e): $5
-- Power supply (5V 2A): $5
-- MicroSD card (32 GB): $5
-- Case: $5
-- **Total: $55**
-
-### Software:
-1. Download Grid relay software
-2. Install on Pi (via SD card image or package manager)
-3. Point to home router
-4. Software auto-discovers rendezvous
-5. Software auto-publishes capacity
-6. Done (user contributes relay capacity)
-
-### Operating:
-- Electricity cost: $2/month
-- Maintenance: None (set and forget)
-- Monitoring: Web dashboard (optional)
-- Earnings: ~$1/month (100 GB average usage)
-- Break-even: 35 months
+A rendezvous server may be unavailable for maintenance, failure, or
+policy reasons. Peers should maintain at least two rendezvous servers
+in their `RendezvousManifest`. A peer whose list becomes empty is
+undiscoverable until it publishes to an available server.
 
 ---
 
-*End of Relay & Rendezvous Operations*
+## 9. Federation
+
+Federation between rendezvous servers is a `planned` feature. In the
+current protocol version, a rendezvous server is a standalone store.
+
+A peer that wants redundancy publishes to multiple servers
+independently. A verifier that wants redundancy queries multiple
+servers.
+
+---
+
+## 10. Impersonation
+
+A rendezvous server is authenticated by its TLS certificate. A peer
+that connects to an impostor will not receive valid records, because
+the impostor cannot forge signatures. However, an impostor can log
+queries and deny service.
+
+Mitigations: use a rendezvous server whose TLS certificate you trust,
+or use multiple providers.
+
+---
+
+## 11. Selective suppression
+
+A malicious rendezvous server can suppress specific records while
+serving others. Peer A becomes unreachable to peer B while remaining
+reachable to peer C. This is difficult to detect from a single query.
+
+Mitigation: query multiple rendezvous servers and compare responses. A
+verifier that finds a mismatch treats the record as unverified and
+refreshes from the peer directly if possible.
+
+---
+
+## 12. Data loss
+
+A rendezvous server that loses its data does not lose anything
+irreplaceable. Publishers republish. Verifiers use alternative servers
+or cached state.
+
+The server should not treat data loss as a security event. It is an
+availability event.
+
+---
+
+## 13. Operational monitoring
+
+A rendezvous operator should monitor:
+
+- Publication success rate.
+- Lookup latency and success rate.
+- Rate-limit hit rate.
+- Storage growth.
+- Peer count and record count.
+
+The data belongs to the operator. The protocol does not export it and
+does not require it to be shared.
+
+---
+
+## 14. Cost
+
+The dominant cost of operating a rendezvous server is bandwidth. The
+data is tiny, but queries are frequent. A server that serves a large
+population of verifiers will see many more reads than writes.
+
+Storage cost is negligible at typical scale. The server can run on
+modest hardware: a single virtual machine or a low-cost dedicated
+server is sufficient for a large number of peers.

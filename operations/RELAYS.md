@@ -1,282 +1,310 @@
-# Relays
+# Grid Network — Relay Operation Guide
 
-Relay model, capability advertisement, deployment, and economics for Grid Network.
+**Revision:** 2.1
+**Protocol version:** v0.6.2
 
----
-
-## 1. Relay Model
-
-A relay is infrastructure for forwarding traffic when a direct path is unavailable or undesirable. It is not an identity authority, authorization authority, or ownership authority.
-
-### 1.1 Core Properties
-
-- **End-to-end encryption:** Relays forward ciphertext only. They cannot decrypt application payloads.
-- **No authorization authority:** Relays enforce ticket validity, expiration, byte limits, bandwidth limits, session lifetime, and connection limits. They MUST NOT create identities, grant capabilities, establish relationships, or modify authorization.
-- **Replaceable:** Any relay can be swapped without changing identity, authorization, or relationships.
-- **Untrusted by design:** A malicious relay can drop traffic, delay traffic, refuse service, observe metadata, and consume its own resources. It cannot impersonate services, grant authorization, read content, change identity, create relationships, forge leases, or become an authority.
-
-### 1.2 Connectivity Preference Order
-
-1. **Local LAN** — Direct. No relay.
-2. **Direct IPv6** — Direct. No relay.
-3. **Direct IPv4** — Direct. No relay.
-4. **NAT traversal** — Direct once established. No relay.
-5. **Relay** — Direct failed. Fallback.
-
-In mature deployments with widespread IPv6 and working NAT traversal, most traffic never reaches step 5.
+This document is non-normative. It describes how to operate a relay for
+the Grid Network. Where this document and the Protocol Specification
+conflict, the Protocol Specification governs.
 
 ---
 
-## 2. Capability Advertisement
+## 1. What a relay is
 
-Relays advertise capabilities rather than hardware identity.
+A relay is infrastructure that forwards encrypted traffic between two
+peers when direct connection is not possible. It is a pair-bound packet
+forwarder, not a proxy.
 
-### 2.1 Advertised Properties
+A relay does not decrypt content. It does not decide authorization. It
+does not define identity. It accepts relay tickets, forwards packets
+for the pair named in each ticket, and meters usage.
 
-- Maximum concurrent sessions
-- Aggregate bandwidth
-- Maximum per-session bandwidth
-- Maximum bytes per session
-- Maximum aggregate or periodic transfer
-- Maximum connection lifetime
-- Supported transports
-- IPv4/IPv6 availability
-- Current or estimated utilization
-- Geographic/region metadata
-- Latency characteristics
-- Availability characteristics
-- Supported relay modes
-- Privacy-related capabilities
-- Operator access policy
-
-### 2.2 Capability Profiles
-
-| Profile | Description |
-|---------|-------------|
-| BASIC | Ordinary encrypted forwarding with resource limits |
-| HIGH_CAPACITY | Optimized for high aggregate bandwidth and large concurrent sessions |
-| LOW_LATENCY | Optimized for path latency rather than maximum throughput |
-| LONG_LIVED | Supports long-duration forwarding sessions |
-| COMMUNITY | Operator-volunteered with explicitly declared access/resource policies |
-| PRIVACY | Supports additional privacy-oriented forwarding capabilities |
-
-Profiles are descriptive capability groupings, not separate protocol architectures.
-
-
-### 2.3 Relay Capability Advertisement (Future Extension)
-
-The relay capability advertisement mechanism allows relays to publish their current operational capabilities and capacity for client path selection.
-
-### RelayNodeRecord
-
-A RelayNodeRecord is a signed object published by a relay node to advertise its capabilities and current operational state.
-
-Fields:
-- `relay_node_id` — unique identifier for the relay node
-- `operator_id` — identity of the relay operator
-- `endpoint` — network endpoint (address, port, transport)
-- `capabilities` — set of capability profile identifiers (BASIC, HIGH_CAPACITY, LOW_LATENCY, LONG_LIVED, COMMUNITY, PRIVACY)
-- `capacity` — current capacity declaration:
-  - `max_concurrent_sessions` — maximum concurrent sessions
-  - `aggregate_bandwidth_bps` — aggregate bandwidth in bits per second
-  - `max_per_session_bandwidth_bps` — maximum per-session bandwidth
-  - `max_bytes_per_session` — maximum bytes per session
-  - `max_session_duration_seconds` — maximum session duration
-- `availability` — availability declaration:
-  - `hours_per_day` — hours per day the relay is available
-  - `days_per_week` — days per week the relay is available
-  - `uptime_percentage` — expected uptime percentage
-- `supported_transports` — set of supported transport protocols (WireGuard, QUIC, TCP, etc.)
-- `privacy_capabilities` — privacy-oriented capabilities (e.g., onion forwarding, multi-hop support)
-- `operator_policy` — operator access and contribution policy:
-  - `access` — public, relationship-required, or operator-approved
-  - `contribution` — free, paid, or reciprocal
-  - `price` — pricing information if applicable
-- `geographic_metadata` — geographic and network metadata:
-  - `region` — geographic region
-  - `country` — country code
-  - `network_asn` — autonomous system number
-  - `latitude` — optional latitude
-  - `longitude` — optional longitude
-- `issued_at` — timestamp of record creation
-- `expires_at` — optional expiration timestamp
-
-RelayNodeRecord is signed by the Relay Node Key and published to rendezvous servers. Clients use this information for path selection without centralized load balancers.
-
-
+The pair bound to a ticket is (source device, destination device). The
+ticket is signed by the relay's authority key. A relay that receives a
+packet without a valid ticket rejects it.
 
 ---
 
-## 3. Operational State
+## 2. Relay capability model
 
-Static capacity is insufficient. Relays expose current operational state:
+A relay advertises its capabilities through an `OperatorManifest`. The
+manifest declares:
 
-```json
-{
-  "load": {
-    "active_sessions": 97,
-    "utilization": 0.97,
-    "available_bandwidth_bps": 3000000
-  }
-}
-```
+- supported transport families (UDP, TCP, QUIC)
+- maximum bandwidth
+- maximum concurrent sessions
+- maximum bytes per session
+- maximum session duration
+- expected latency characteristics
+- expected availability
+- geographic region
 
-Clients use this for path selection without centralized load balancers.
+The manifest is signed by the relay's identity root and published to a
+well-known rendezvous server so that peers can obtain it before
+connecting. How the manifest is discovered is a deployment choice;
+typical deployments publish the manifest URL out-of-band, in
+documentation, or through a directory service.
 
----
-
-## 4. Path Requirements
-
-Applications express connectivity requirements rather than selecting specific relays:
-
-```json
-{
-  "direct": "preferred",
-  "relay": "permitted",
-  "min_bandwidth_bps": 20000000,
-  "max_latency_ms": 100,
-  "max_hops": 3,
-  "ipv6": "preferred",
-  "privacy_level": 0,
-  "minimum_path_lifetime": "2h"
-}
-```
-
-The local agent evaluates available paths and selects one satisfying the requirements.
+A relay's admission control rejects a ticket when capacity is
+exhausted. Rejection is an availability failure, not an authorization
+failure. The verifier responds by trying an alternative relay.
 
 ---
 
-## 5. Low-Power Node Deployment
+## 3. Relay ticket lifecycle
 
-### 5.1 Raspberry Pi Class Hardware
+A ticket is issued by a relay's authority key in response to a request
+from a device that wishes to use the relay. The ticket binds the source
+device to a destination device, bounds the capacity, bounds the
+duration, and assigns a priority class.
 
-A relay does not need to terminate encryption. The workload is packet forwarding with validation/association of relay sessions, limit enforcement, and transient state maintenance — not heavy cryptography per packet.
+**Issuance.** The requesting device authenticates to the relay's
+authority (using its identity root or a delegated key) and requests a
+ticket. The relay issues the ticket if its policy permits.
 
-A Raspberry Pi 3B can contribute meaningfully:
-- Network interface speed and packets/second are the limiting factors
-- 10-50 Mbps forwarding is achievable
-- Even small contributions are valuable when thousands of nodes participate
+**Use.** The device presents the ticket to the relay when it sends the
+first packet. The relay validates the ticket and begins forwarding.
+Subsequent packets in the same session use the ticket's session
+identifier.
 
-### 5.2 Resource Contribution Granularity
+**Expiry.** The ticket expires when its `expires_at` passes or when its
+`capacity` is exhausted. On expiry, the session terminates.
 
-Community nodes don't need enormous bandwidth:
-- 5-50 Mbps
-- Occasional availability
-- IPv6 connectivity
-- Geographically useful location
-- Particular ISP/ASN
-
-A node useless as a high-performance server can still be valuable as one more independent path.
-
-### 5.3 Path Diversity Value
-
-Many small nodes create path diversity. When direct flow performs poorly, the network can discover alternative paths through multiple relays and distribute traffic dynamically based on throughput, latency, loss, jitter, congestion, and stability.
-
-This addresses the residential internet problem where single flows achieve only a fraction of advertised bandwidth while aggregate multipath throughput can be much higher.
+**Renewal.** A ticket is renewed by requesting a new ticket. The
+protocol does not define a renewal mechanism within a ticket; a new
+ticket is issued.
 
 ---
 
-## 6. Relay Untrusted Property
+## 4. Capacity planning
 
-This is the strongest architectural property. A malicious relay can:
-- Drop traffic
-- Delay traffic
-- Refuse service
-- Observe metadata
-- Consume its own resources
+A relay operator plans capacity in three dimensions: bandwidth,
+concurrent sessions, and total throughput.
 
-But it cannot:
-- Impersonate the service
-- Grant authorization
-- Read end-to-end protected content
-- Change identity
-- Create relationships
-- Forge leases
-- Become an authority
+**Bandwidth.** Determined by the uplink to the internet. A relay's
+maximum bandwidth is the lesser of its uplink and its own forwarding
+capability. The forwarding capability of a relay is bounded by CPU,
+memory, and network interface.
 
-**Permissionless infrastructure, permissioned services.**
+**Concurrent sessions.** Each active pair consumes state. On
+commodity hardware, per-session state is a few hundred kilobytes. A
+relay with 1 GB of memory available can handle roughly 1,000
+concurrent sessions, subject to CPU.
 
----
+**Total throughput.** The product of average session bandwidth and
+session count, capped by the uplink.
 
-## 7. Storage Principles
-
-Forwarding traffic, connection statistics, and transient reachability observations MUST NOT require persistent storage writes.
-
-Persistent storage is for:
-- Identity keys
-- Configuration
-- Accepted protocol state
-- Bounded authorization/revocation information
-- Signed objects
-- Checkpoints
-- Limited logs
-
-This makes inexpensive flash/SD storage viable for relay operators.
+An operator should provision for peak load rather than average. Idle
+capacity during troughs is not wasted; in the current commercial model,
+idle capacity from paid reservations flows to free users.
 
 ---
 
-## 8. Network Self-Healing
+## 5. Home relay deployment
 
-Because relays are interchangeable resources, the network doesn't need a single official relay. If Relay A is overloaded, the network chooses Relay B. If Relay B disappears, connections migrate or establish another path.
+A low-cost single-board computer such as a Raspberry Pi 3B is adequate
+for a home relay. The board's forwarding capability substantially
+exceeds the typical residential uplink, so the uplink is the binding
+constraint.
 
-Optimize around scarce resources rather than pretending scarce resources don't exist.
+### 5.1 Hardware
+
+An illustrative configuration:
+
+| Component | Cost | Note |
+|---|---|---|
+| Single-board computer (Pi 3B class) | ~$35 | One-time |
+| Ethernet cable | ~$5 | Cat5e sufficient |
+| Power supply | ~$5 | 5V 2A |
+| Storage card | ~$5 | 32 GB sufficient |
+| Case | ~$5 | Optional |
+
+Total hardware cost is roughly $55.
+
+### 5.2 Software installation
+
+1. Install the relay software on the board. A pre-built image or a
+   package-manager installation is typical.
+2. Connect the board to the home router with Ethernet.
+3. Configure the relay with the operator's identity root (a fresh root
+   for the relay, or a delegated key).
+4. The relay discovers a rendezvous server and publishes its
+   `OperatorManifest`.
+5. The relay is now accepting tickets.
+
+### 5.3 Operating cost
+
+Power draw is roughly 5 W sustained. At typical residential electricity
+rates this is under $1/month. The board has no moving parts and a
+multi-year operating lifetime.
+
+### 5.4 What the operator earns
+
+A home relay earns credits for the bytes it forwards. The exchange rate
+is defined by the operator's policy within the bounds of the credit
+model. Typical earnings for a home relay with light usage are modest;
+the break-even against electricity alone is measured in months, and
+against hardware in years.
+
+The primary benefit of running a home relay is not revenue. It is the
+credits earned, which offset the operator's own relay usage, and the
+contribution to network resilience.
 
 ---
 
-## 9. Direct Connectivity First
+## 6. Bandwidth aggregation
 
-The preferred progression is:
-1. IPv6 direct
-2. Direct IPv4 / NAT traversal
-3. Other suitable direct transport
-4. Relay
-5. Multiple relays / multipath
+A single home relay's capacity is bounded by the residential uplink.
+Users who need more bandwidth can aggregate multiple relays.
 
-The application shouldn't care. It asks "Connect me to Service X." The agent figures out how.
+**Aggregation.** A reachability record may list multiple relay
+endpoints. A verifier opens sessions to multiple relays and distributes
+traffic across them.
 
----
+**Cost.** Each relay used incurs its own ticket and its own credit
+cost. Aggregation is not free.
 
-## 10. Core vs Future
-
-### V1 Core (Current)
-- Identity
-- Relationships
-- Authorization
-- Leases
-- Revocation
-- Freshness
-- Reachability
-- Direct connectivity
-- Rendezvous
-- Simple relay fallback
-
-### Future Transport/Path Extension (V2+)
-- Relay capability advertisements
-- Path measurement
-- Path selection
-- Path diversity
-- Multipath
-- Adaptive scheduling
-- Optional redundancy/FEC
-- Resource-aware routing
-- Geographic/ASN diversity
-- Dynamic capacity
-
-Future abstraction: `PathSet` with application requests for `min_bandwidth`, `max_latency`, `multipath`, `max_paths`, `redundancy`.
+**Practical pattern.** A user with a home relay and a small number of
+cloud relays can achieve bandwidth substantially above any single
+relay's capacity. The home relay serves as the free base; cloud relays
+add capacity when needed.
 
 ---
 
-## 11. Economic Model (Summary)
+## 7. Path diversity
 
-The relay layer enables a spectrum from free/self-hosted to global high-capacity networks:
+Relay operation should aim for diversity along four axes.
 
-- Free/self-hosted (Pi, home NAS)
-- Community relay (shared VPS)
-- Small paid operator
-- Regional provider
-- Enterprise managed service
-- Global high-capacity network
+**Geographic.** Relays in different cities, regions, or continents.
+Latency between source and destination varies by geography; a relay
+near the destination is generally better than one near the source for
+download-heavy traffic.
 
-The protocol does not decide which model wins. It makes them interoperable.
+**Provider.** Relays operated by different operators. A single
+operator's failure does not remove all paths.
 
-See `../commercial/MODEL.md` for full commercial model including credit system, priority classes, geographic scarcity, and developer funding.
+**Autonomous system.** Relays in different ASes. A routing failure at
+one AS does not remove all paths.
+
+**Network.** Relays on different physical networks. A last-mile failure
+at one site does not remove all paths.
+
+A deployment that uses a single relay of a single operator in a single
+AS is a deployment with a single point of failure. A deployment that
+uses multiple relays across multiple axes can tolerate any single
+relay's failure.
+
+---
+
+## 8. Relay economics
+
+A relay operator earns revenue through two channels: paid tier
+subscriptions and credit settlement with other operators. The economics
+depend on the operator's scale, cost structure, and mix of users.
+
+### 8.1 Cost structure
+
+The dominant cost is bandwidth. For a cloud-hosted relay, bandwidth is
+metered by the provider. For a home-hosted relay, bandwidth is the
+residential uplink, and the cost is the electricity to run the board.
+
+Secondary costs: hardware, monitoring, support, and the developer fund
+contribution (a fraction of revenue).
+
+### 8.2 Revenue structure
+
+Revenue comes from subscriptions at the standard, priority, and
+dedicated tiers. Free-tier users pay nothing; they are supported by the
+idle capacity that paid users do not use.
+
+### 8.3 Break-even
+
+A relay breaks even when subscription revenue covers cost. The
+relationship between capacity and revenue is roughly linear at scale;
+larger operators have lower per-gigabit costs because of better peering
+and amortized overhead.
+
+An operator should model their own cost and revenue. The figures in the
+Commercial Model are illustrative defaults, not promises.
+
+---
+
+## 9. Relay key rotation
+
+A relay's authority key signs tickets. Rotating it does not invalidate
+existing tickets until they expire, because tickets are validated
+against the key that signed them.
+
+To rotate:
+
+1. Generate the new authority key.
+2. Publish a new `OperatorManifest` under the relay's identity root,
+   declaring the new key as `current_relay_authority_key`.
+3. Existing tickets remain valid until they expire.
+4. New tickets are signed by the new key.
+5. After the transition period, revoke the old key.
+
+A peer that has an old manifest and attempts to use an old ticket will
+succeed until the ticket expires. A peer that requests a new ticket
+uses the current manifest and receives a ticket signed by the current
+key.
+
+---
+
+## 10. Relay failure modes and response
+
+**Relay is unreachable.** Peers with active sessions lose connectivity
+and retry via alternatives. New sessions are not admitted.
+
+**Relay is overloaded.** New ticket requests are rejected. The
+rejection is not an authorization failure. Peers try alternatives.
+
+**Relay is compromised.** The attacker can observe metadata (packet
+size, timing, source, destination), drop traffic, and inject traffic.
+Injected traffic is rejected by transport-level authentication. The
+attacker cannot decrypt content or change authorization.
+
+**Relay is malicious.** A malicious relay can selectively deny service
+to specific pairs. It cannot forge authorization or decrypt content.
+The mitigation is the same as for any infrastructure: use multiple
+providers.
+
+**Relay's authority key is compromised.** The identity root publishes
+a `KeyRevocation` for the compromised key. New tickets are not issued
+under the compromised key. Existing tickets remain valid until they
+expire.
+
+---
+
+## 11. Operational monitoring
+
+An operator should monitor:
+
+- Bandwidth utilization per minute and per hour.
+- Session count and duration distribution.
+- Ticket rejection rate (indicates overload).
+- Peer satisfaction (through indirect signals; the protocol does not
+  define a satisfaction metric).
+- Reliability (uptime, latency percentiles).
+- Geographic distribution of requests.
+
+The data belongs to the operator. The protocol does not export it and
+does not require it to be shared.
+
+---
+
+## 12. Credit accounting
+
+An operator tracks credits earned and spent. Credits are earned when a
+relay forwards bytes for another operator's user. Credits are spent
+when an operator's user uses another operator's relay.
+
+Credit accounting is an operator-local concern in the current protocol
+version. Cross-operator settlement is a `planned` feature. In the
+current protocol version, an operator's credit balance is internal.
+
+The exchange rate between credits and bytes is defined by the
+operator's policy. The default is `CREDIT_TO_GB_RATIO`. Geographic
+multipliers for scarce regions are defined by the operator, with
+defaults `GEOGRAPHIC_MULTIPLIER_ABUNDANT`, `GEOGRAPHIC_MULTIPLIER_SCARCE`,
+and `GEOGRAPHIC_MULTIPLIER_VERY_SCARCE`.

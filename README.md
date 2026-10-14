@@ -1,104 +1,151 @@
 # Grid Network
 
-This specification was developed with AI assistance.
+> **AI-assisted creation.** This specification was developed with
+> substantial assistance from large language models. Human
+> authorship directed the design, reviewed the drafts, and made
+> the editorial decisions. The specification's content should be
+> evaluated on its technical merits. Where a claim is wrong, the
+> provenance is not the reason.
 
-Grid Network is a cryptographic identity, authorization, and reachability protocol for portable, vendor-neutral device connectivity.
 
-Every self-hosted application eventually needs remote access. Today that access either depends on a vendor (commercial mesh VPNs), requires an expert (self-hosted VPNs), or exposes the user to risk (port forwarding). The structural reason is that coordination has always required somebody to be the authority. Authorities cost money to operate, so somebody has to pay.
-
-Grid Network presents a design that solves coordination without introducing an authority. Identity is a keypair, not an account. Authorization is local, not remote. Discovery is signed, not centralized. Infrastructure is replaceable, not mandatory.
-
-The result is a protocol that costs nothing to operate, requires nobody's permission, and cannot be captured by any single entity. It is designed to be for private connectivity what Linux is for operating systems and TLS is for transport security.
-
----
-
-## The Problem
-
-Every self-hosted service, every personal server, every home automation system, every private application eventually hits the same wall:
-
-> "How do I reach this from somewhere else?"
-
-This forces every project into one of three bad choices:
-
-1. **Expose to the internet** — Open a port, hope nothing scans you. Firmware vulnerabilities, default credentials, Shodan exposure.
-2. **Use a proprietary tunnel/mesh VPN** — Tailscale, Cloudflare Tunnel, ZeroTier, ngrok. The company owns your device graph, access policies, identity. If the vendor disappears, your network loses its definition of who is allowed to talk to whom.
-3. **Build it yourself** — Run your own VPN, manage certificates, deal with dynamic DNS, CGNAT, NAT traversal, relay infrastructure, revocation, offline state. Works, but requires sysadmin expertise most people don't have.
+A cryptographic identity and authorization layer that turns whatever
+network connectivity exists into a usable, portable, vendor-neutral
+connectivity fabric.
 
 ---
 
-## The Solution
+## What this is
 
-Grid Network is a **control plane** that sits above existing transports (WireGuard, QUIC, TCP) and answers three questions:
+Grid Network is a control plane for identity, authorization, and
+reachability. It sits above existing transports and answers three
+questions:
 
-| Question | Answer |
-|----------|--------|
-| **Who is this?** | Persistent cryptographic identity — opaque Peer ID bound to Identity Root keypair |
-| **What is it allowed to do?** | Signed Grants + short-lived Leases with relative validity |
-| **Where can I find it?** | Ephemeral signed Reachability Records |
+1. **Who is this?** A cryptographic identity, controlled by the
+   participant.
+2. **What are they allowed to do?** A signed authorization, verified
+   locally.
+3. **Where can I find them?** An ephemeral reachability record,
+   refreshed as networks change.
 
----
-
-## Key Properties
-
-- **Identity is portable** — Survives device replacement, network changes, provider changes
-- **Authorization is local** — Offline verification, no central authority required
-- **Reachability is ephemeral** — Hints, not ground truth; refreshed as networks change
-- **Infrastructure is untrusted** — Rendezvous/relay operators cannot forge auth or identity
-- **Protocol is open** — No proprietary components; any implementation can interoperate
+The protocol is not a VPN, not a tunnel, and not a replacement for
+WireGuard, IPv6, or any transport. It is a layer that makes identity
+and authorization portable across infrastructure changes.
 
 ---
 
-## Where to Start
+## The property that makes it different
 
-| Audience | Start Here |
-|----------|------------|
-| New reader | This README, then `spec/PROTOCOL.md` |
-| Implementer | `spec/PROTOCOL.md`, then `spec/OBJECTS.md` |
-| Reviewer | `design/THREAT-MODEL.md`, then `design/RATIONALE.md` |
-| Operator | `operations/CONNECTIVITY.md`, then `operations/RELAYS.md` |
+Today, the ability to reach your own devices from anywhere is rented
+from companies. Commercial mesh VPNs, tunnels, and coordination
+services own the device graph, the access policies, and the
+relationships. If the provider changes terms, is acquired, or shuts
+down, the relationships break.
+
+The protocol makes the relationships the durable thing and the network
+the replaceable thing. A device can move between networks, change
+providers, go offline for months, and its relationships survive. No
+company decides whether the network exists.
+
+This is the property no widely-adopted system provides today. It is the
+design's reason to exist.
 
 ---
 
-## Repository Structure
+## Repository layout
 
-```
-grid-network/
-├── README.md                 # This file
-├── LICENSE.md                # GPL v3
-├── CONTRIBUTING.md           # Contribution guidelines
-├── ROADMAP.md                # Project roadmap
-├── VERSIONING.md             # Versioning policy
-│
-├── spec/                     # Normative specifications
-│   ├── README.md
-│   ├── PROTOCOL.md           # Protocol specification (v0.6.2, design-review)
-│   ├── OBJECTS.md            # Byte-level encoding (partial)
-│   └── TEST-VECTORS/         # Test vectors (to be created)
-│
-├── design/                   # Rationale and decisions
-│   ├── README.md
-│   ├── RATIONALE.md          # Design philosophy
-│   ├── LINEAGE.md            # Prior art relationships
-│   ├── DECISIONS.md          # Decision log
-│   └── THREAT-MODEL.md       # Security properties
-│
-├── operations/               # Infrastructure operation
-│   ├── README.md
-│   ├── CONNECTIVITY.md       # Direct connectivity, NAT traversal
-│   ├── RENDEZVOUS.md         # Rendezvous model
-│   └── RELAYS.md             # Relay model
-│
-├── commercial/               # Economic model
-│   ├── README.md
-│   └── MODEL.md              # Commercial model
-│
-├── implementations/          # Reference implementations
-├── apps/                     # Application integrations
-└── examples/                 # Usage examples
-```
+    spec/           Normative specification
+      PROTOCOL.md     Protocol rules, objects, conformance
+      OBJECTS.md      Byte-level encoding, cryptographic constructions
+      PARAMETERS.md   All tunable values, as symbols
+      VERSIONING.md   Document and protocol versioning
+      GLOSSARY.md     Terms
+
+    design/         Non-normative rationale
+      RATIONALE.md    Problem, solution, developer case
+      DECISIONS.md    Decision log with rationale
+      REJECTED.md     Rejected approaches and reopening conditions
+      LINEAGE.md      What was learned from prior systems
+      EXTENSIONS.md   Planned, deferred, and unscheduled features
+
+    operations/     Non-normative operational guidance
+      RELAYS.md       Relay operation and economics
+      DEPLOYMENT.md   Deployment topologies and procedures
+
+    commercial/     Non-normative commercial model
+      MODEL.md        Free tier, paid tiers, credits, funding
+
+    REVISIONS.md    Changelog of document revisions
+
+---
+
+## Where to start
+
+**If you are evaluating the protocol:** read `design/RATIONALE.md`.
+It explains the problem and why the design addresses it.
+
+**If you are implementing the protocol:** read `spec/PROTOCOL.md` and
+`spec/OBJECTS.md`. Sections marked `stable` are conformance-grade.
+Sections marked `under-review` carry a known defect and must not be
+built against yet.
+
+**If you are operating infrastructure:** read `operations/RELAYS.md`
+and `operations/DEPLOYMENT.md`.
+
+**If you are integrating the protocol into an application:** read
+`design/RATIONALE.md` §5 and `spec/PROTOCOL.md` §13.
+
+**If you want to know why a specific decision was made:** read
+`design/DECISIONS.md`. If you want to know why an approach was
+rejected, read `design/REJECTED.md`.
+
+---
+
+## Status
+
+**Document revision:** 2.1
+**Protocol version:** v0.6.2
+
+The specification is a living document. Sections marked `stable` are
+conformance-grade and will not change without a protocol-version bump.
+Sections marked `under-review` carry a known defect or open question.
+Unmarked sections are the default state.
+
+No reference implementation is available yet. No test vectors have been
+published. The protocol is in a documentation and design phase.
+
+---
+
+## What the protocol is not
+
+- Not a decentralized VPN. It is a control plane above transports.
+- Not a DNS replacement. It maps identities to reachability, with
+  authorization.
+- Not an anonymity network. Peers are identified. Metadata is visible
+  to infrastructure operators.
+- Not a blockchain. No consensus, no ledger, no token.
+- Not a peer-to-peer file system. No distributed storage.
+- Not a company. No operator, no owner, no central authority.
+- Not affiliated with any operator, provider, or organization.
+- Not a standards-body publication. It is a project document.
+- Not a security certification. It describes a design; it does not
+  assert that the design has been verified against any threat model
+  beyond the one in the specification.
+- Not a governance document. Any governance structure is external.
+- Not a specification for a specific product or implementation.
+
+---
+
+## How to participate
+
+The specification is open. Contributions are welcome as review,
+critique, or proposed patches. Every change is recorded in
+`REVISIONS.md`.
+
+The protocol is designed to be implementable by anyone, operable by
+anyone, and replaceable at every infrastructure layer.
 
 ---
 
 ## License
 
-GPL v3 — see [`LICENSE.md`](LICENSE.md).
+See `LICENSE.md`.

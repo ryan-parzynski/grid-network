@@ -1,18 +1,69 @@
+# Grid Network — Object Encoding Specification
+
+**Revision:** 2.1
+**Protocol version:** v0.6.2
+
+This document defines the byte-level representation and cryptographic
+constructions of every signed object in the Grid Network protocol. It
+is normative and is subordinate only to the Protocol Specification.
+Where this document and the Protocol Specification conflict, the
+Protocol Specification governs.
+
 ---
-title: "Grid Network — Object Encoding (v0.6.2)"
-status: DESIGN-REVIEW v0.6.2
-version: v0.6.2
-date: 2026-10-11
+
+## §1. Scope and terminology
+
+This document defines:
+
+- the canonical CBOR encoding profile;
+- the constructions of `unsigned_payload`, `commitment_preimage`,
+  `object_commitment`, `chain_hash`, `signature_input`, `signature`,
+  `payload_id`, and `object_id`;
+- the common stream envelope;
+- sequence and chain rules;
+- the semantics of `domain_separator`;
+- the object registry;
+- the verification procedure;
+- the rejection classes.
+
+**Normative terminology.**
+
+- MUST, MUST NOT, SHOULD, SHOULD NOT, MAY as defined in RFC 2119.
+- **Canonical** means the exact byte sequence produced by the encoding
+  rules in §2.
+- **Unsigned payload** means the CBOR map representing an object before
+  `chain_hash` and `signature` are added.
+- **Signed object** means the CBOR map representing an object after
+  `chain_hash` and `signature` are added.
+- **Sequence space** means the pair `(issuer, stream_id)`.
+- **Stream** means the ordered sequence of objects sharing one sequence
+  space.
+- **Base state** means `initial_chain_hash`, the predecessor value for
+  the first object in a stream.
+
+**Two invariants govern this document.**
+
+**I1 — Sequence-space invariant.** A sequence number has meaning only
+within its `(issuer, stream_id)` sequence space. Sequence numbers from
+different sequence spaces must not be compared.
+
+**I2 — Vector normative invariant.** Normative test vectors define
+exact byte-level behavior. If prose and a vector disagree, this
+document must be corrected so they agree. Implementations must not
+choose whichever interpretation they prefer.
+
 ---
 
-## §2: CANONICAL CBOR PROFILE
+## §2. Canonical CBOR profile
 
-All protocol objects use CBOR (RFC 8949) with deterministic encoding constraints.
+All protocol objects use CBOR (RFC 8949) with the deterministic
+encoding constraints below. Where RFC 8949 permits alternatives, only
+the form specified here is valid.
 
-### 2.1 Allowed major types
+### §2.1 Allowed major types
 
 | Major type | Allowed | Notes |
-|------------|---------|-------|
+|---|---|---|
 | 0 — unsigned integer | Yes | §2.2 |
 | 1 — negative integer | No | Protocol values are non-negative |
 | 2 — byte string | Yes | §2.3 |
@@ -20,270 +71,305 @@ All protocol objects use CBOR (RFC 8949) with deterministic encoding constraints
 | 4 — array | Yes | §2.5 |
 | 5 — map | Yes | §2.6, §2.7 |
 | 6 — tag | No | Protocol uses no CBOR tags |
-| 7 — simple/float | Partial | Only null (0xf6) and booleans |
+| 7 — simple and float | Partial | Only `null` (0xf6) and booleans |
 
 Any object containing a major type not listed above is malformed.
 
-### 2.2 Integer representation
+### §2.2 Integer representation
 
-Integers MUST be encoded in their shortest form. Non-shortest integer encodings are malformed.
-Permitted ranges: non-negative integers 0 to 2^64 − 1. Negative integers are not permitted.
+Integers MUST be encoded in their shortest form.
 
-### 2.3 Byte strings
+- Values 0 through 23 use the additional-information encoding directly.
+- Values above 23 use the shortest additional-info-24/25/26/27 form.
 
-Byte strings MUST be definite-length. Indefinite-length byte strings are malformed. Byte string length MUST be encoded in the shortest form.
+Non-shortest integer encodings are malformed. Negative integers are
+not permitted. Permitted range: 0 to 2^64 − 1.
 
-### 2.4 Text strings
+### §2.3 Byte strings
 
-Text strings MUST be definite-length and MUST be valid UTF-8. Text strings MUST use Unicode Normalization Form C (NFC). Text strings that are not in NFC are malformed. Byte-order mark (U+FEFF) MUST NOT appear at the beginning of a text string.
+Byte strings MUST be definite-length. Byte string length MUST be
+encoded in the shortest form.
 
-### 2.5 Arrays
+### §2.4 Text strings
 
-Arrays MUST be definite-length. Array schemas MUST explicitly specify whether duplicate elements are permitted. Unless a schema explicitly permits duplicates, duplicate elements are malformed.
+Text strings MUST be definite-length and MUST be valid UTF-8.
 
-### 2.6 Maps
+Text strings MUST be in Unicode Normalization Form C (NFC), computed
+under Unicode version 15.0. A text string that is not in NFC under that
+version is malformed.
 
-Maps MUST be definite-length. Indefinite-length maps are malformed. Map keys MUST be unique. Maps containing duplicate keys are malformed. Map keys MUST be text strings unless the map's schema explicitly permits other key types. Protocol map keys are always text strings.
+A byte-order mark (U+FEFF) MUST NOT appear at the start of a text
+string.
 
-### 2.7 Map key ordering
+### §2.5 Arrays
 
-Map keys MUST be ordered according to CBOR deterministic encoding (RFC 8949 §4.2.1):
-1. First by the length of the encoded key (shorter first)
-2. Then by bytewise lexicographic comparison of the encoded key bytes
+Arrays MUST be definite-length.
 
-This is the **length-first core deterministic encoding** (RFC 8949 §4.2.3), NOT the core deterministic encoding of §4.2.1 (which uses bytewise lexicographic ordering of the encoded key bytes). Non-canonical map ordering is malformed.
+An array's schema declares whether duplicate elements are permitted.
+Unless a schema explicitly permits duplicates, duplicate elements are
+malformed. Arrays that represent a set have additional constraints
+(§2.8).
 
-**Open blocker:** The citation of RFC 8949 §4.2.1 for the length-first rule is incorrect — §4.2.1 defines core deterministic encoding (bytewise lexicographic). The length-first rule is in §4.2.3. The text correctly describes the length-first rule but cites the wrong RFC section. This affects canonical encoding and must be corrected for interoperable implementation. (open blocker)
+### §2.6 Maps
 
-### 2.8 Set semantics
+Maps MUST be definite-length. Map keys MUST be unique. A map containing
+duplicate keys is malformed.
 
-A protocol set<T> is encoded as a definite-length CBOR array whose elements are:
-1. Unique — no two elements have identical canonical CBOR encodings
-2. Sorted — elements are ordered by bytewise lexicographic comparison of their canonical CBOR encodings
+Map keys MUST be text strings unless the map's schema explicitly
+permits other key types. Protocol map keys are always text strings.
 
-An array that represents a set<T> but contains duplicate elements, or whose elements are not in the required order, is malformed. An empty set is encoded as an empty definite-length array.
+### §2.7 Map key ordering
 
-### 2.8.1 Collection ordering distinction
+Map keys MUST be ordered by bytewise lexicographic comparison of their
+canonical CBOR encodings. This is the ordering defined by RFC 8949
+§4.2.1. Length-first ordering (RFC 7049 §3.9) is not used.
 
-Two distinct ordering semantics exist in the protocol:
-- **Map key ordering (§2.7):** Map keys are ordered by the length-first core deterministic encoding (RFC 8949 §4.2.3): shorter encoded keys first, then bytewise lexicographic.
-- **Set element ordering (§2.8):** Set elements are ordered by bytewise lexicographic comparison of their complete canonical CBOR encodings (no length prefix).
+A map whose keys are not in this order is malformed.
 
-These are different orderings. A map's key order MUST NOT be inferred from set ordering rules, and vice versa.
+### §2.8 Set semantics
 
-### 2.9 Null and optional fields
+A protocol `set<T>` is encoded as a definite-length CBOR array whose
+elements are:
 
-null (CBOR 0xf6) is permitted only where an object schema explicitly declares a field as **optional-and-absent** AND explicitly permits null as a valid value. When a field is optional-and-absent, the field key MUST be omitted from the map, not set to null. An explicit null value is malformed unless a schema explicitly requires it. Boolean values (false = 0xf4, true = 0xf5) are permitted where a schema declares a boolean field.
+1. Unique — no two elements have identical canonical CBOR encodings.
+2. Sorted — elements are ordered by bytewise lexicographic comparison
+   of their canonical CBOR encodings.
 
-**Terminology clarification:**
-- **optional-and-absent:** The field may be omitted from the map. If present, it MUST NOT be null (unless the schema explicitly permits null as a value).
-- **optional-and-nullable:** The field may be omitted, or present with a null value, or present with a non-null value. The schema MUST explicitly declare this.
-- **required:** The field MUST be present with a non-null value.
+An array that represents a `set<T>` but contains duplicate elements, or
+whose elements are not in the required order, is malformed.
 
-Schemas MUST declare each field as exactly one of: required, optional-and-absent, or optional-and-nullable.
+An empty set is encoded as an empty definite-length array.
 
-### 2.10 Floating-point prohibition
+### §2.9 Null and optional fields
 
-Floating-point values (major type 7, additional info 25–27) are prohibited. Any floating-point value is malformed. All numeric values in protocol objects are integers. Time values are represented as integer seconds (or integer milliseconds where a schema explicitly requires sub-second precision).
+`null` (0xf6) is permitted only where an object schema explicitly
+declares a field optional-and-absent. When a field is optional-and-
+absent, the field key is omitted from the map, not set to `null`.
 
-### 2.11 Indefinite-length prohibition
+An explicit `null` value is malformed unless a schema explicitly
+requires it.
 
-Indefinite-length encoding of byte strings, text strings, arrays, and maps is prohibited. All four MUST use definite-length encoding.
+Boolean values (`false` = 0xf4, `true` = 0xf5) are permitted where a
+schema declares a boolean field.
 
-### 2.12 Duplicate-key prohibition
+Simple values other than `null`, `false`, and `true` are not permitted.
 
-Maps MUST NOT contain duplicate keys. Sets MUST NOT contain duplicate elements. Arrays that are not sets MAY contain duplicate values if the schema permits; protocol arrays that carry lists of distinct values are declared as sets.
+### §2.10 Floating-point prohibition
 
-### 2.13 Integer bounds
+Floating-point values (major type 7, additional info 25–27) are
+prohibited. All numeric values in protocol objects are integers. Time
+values are integer seconds unless a schema explicitly requires integer
+milliseconds; a schema must state the unit.
 
-All integers MUST fall within the range specified in §2.2. Schemas MAY impose narrower bounds; values outside a schema's bounds are malformed.
+### §2.11 Indefinite-length prohibition
 
-### 2.14 Rejection of non-canonical encodings
+Indefinite-length encoding of byte strings, text strings, arrays, and
+maps is prohibited. All four must use definite-length encoding.
 
-Any CBOR encoding that does not satisfy §2.1–§2.13 is malformed. Implementations MUST reject malformed encodings before any semantic processing.
+### §2.12 Duplicate-key and duplicate-element prohibition
+
+Maps must not contain duplicate keys. Sets must not contain duplicate
+elements. Arrays that are not sets may contain duplicate values if the
+schema permits; protocol arrays that carry lists of distinct values are
+declared as sets.
+
+### §2.13 Integer bounds
+
+All integers must fall within the range specified in §2.2. Schemas may
+impose narrower bounds; values outside a schema's bounds are malformed.
+
+### §2.14 Rejection of non-canonical encodings
+
+Any CBOR encoding that does not satisfy §2.1 through §2.13 is
+malformed. Implementations MUST reject malformed encodings before any
+semantic processing.
 
 ---
 
-## §3: OBJECT SERIALIZATION
+## §3. Object serialization
 
-### 3.0 Notation
+### §3.1 Notation
 
-- `canonical_cbor(V)` — the byte string produced by encoding CBOR value V according to §2
-- `SHA-256(B)` — the SHA-256 hash of byte string B, producing a 32-byte value
-- `Ed25519_sign(K, B)` — the Ed25519 signature over byte string B using private key K, producing a 64-byte value
-- `Ed25519_verify(P, B, S)` — verification of signature S over byte string B using public key P
-- `||` — byte string concatenation
+- `canonical_cbor(V)` — the byte string produced by encoding value V
+  per §2.
+- `SHA-256(B)` — the SHA-256 hash of byte string B, producing 32 bytes.
+- `Ed25519_sign(K, B)` — an Ed25519 signature over B using private key
+  K, producing 64 bytes.
+- `Ed25519_verify(P, B, S)` — verification of S over B using public key
+  P.
 
-### 3.1 Value/byte distinction
+### §3.2 Value and byte distinction
 
 Protocol constructions operate on two kinds of input:
-- CBOR values — the abstract data structures
-- Byte strings — the output of `canonical_cbor` or of hashing
 
-The distinction is critical. In all definitions below:
-- An operand described as a CBOR value is used as a value and is canonically encoded as part of the surrounding structure
-- An operand described as a byte string is used as bytes and is encoded as a CBOR byte string when placed inside a surrounding CBOR structure
+- **CBOR values** — abstract data structures.
+- **Byte strings** — the output of `canonical_cbor` or hashing.
 
-### 3.2 Unsigned payload
+In every definition below:
 
-The unsigned payload of an object is the CBOR map containing all fields defined by the object schema, including common stream fields such as `domain_separator`, `sequence`, and `previous_hash` where the schema includes them. It excludes only two fields:
-- `chain_hash`, which is derived from the unsigned payload and the stream state
-- `signature`, which is derived from the unsigned payload and the chain hash
+- An operand described as a CBOR value is canonically encoded as part of
+  the surrounding structure.
+- An operand described as a byte string is used as bytes and is encoded
+  as a CBOR byte string when placed inside a surrounding CBOR
+  structure.
+
+### §3.3 Unsigned payload
+
+The unsigned payload of an object is the CBOR map containing all fields
+defined by the object schema, including common stream fields such as
+`domain_separator`, `sequence`, and `previous_hash` where the schema
+includes them. It excludes exactly two fields:
+
+- `chain_hash`, which is derived.
+- `signature`, which is derived.
 
 All other object fields are part of the unsigned payload.
 
-### 3.3 Commitment preimage
+### §3.4 Commitment preimage
 
-```
-commitment_preimage =
-    canonical_cbor([
-        "grid/commitment/v1",
-        domain_separator,
-        unsigned_payload
-    ])
-```
+    commitment_preimage =
+        canonical_cbor([
+            "grid/commitment/v1",
+            domain_separator,
+            unsigned_payload
+        ])
 
-Where:
-- Element 0 is the text string `"grid/commitment/v1"`
-- Element 1 is the object's `domain_separator` as a text string
-- Element 2 is the unsigned payload as a CBOR value
+Element 0 is the text string `"grid/commitment/v1"`. Element 1 is the
+object's `domain_separator` as a text string. Element 2 is the unsigned
+payload as a CBOR value.
 
-The commitment preimage is a byte string.
+### §3.5 Object commitment
 
-### 3.4 Object commitment
+    object_commitment = SHA-256(commitment_preimage)
 
-```
-object_commitment =
-    SHA-256(commitment_preimage)
-```
+The object commitment is a 32-byte value.
 
-The object commitment is a byte string (32 bytes).
+### §3.6 Stream base state
 
-### 3.5 Chain state, previous hash, and chain hash
+Every stream has a base state represented by `initial_chain_hash`:
 
-Every stream has a base state represented by initial_chain_hash.
+    initial_chain_hash =
+        SHA-256(canonical_cbor([
+            "grid/chain-base/v1",
+            domain_separator,
+            stream_id
+        ]))
 
-```
-initial_chain_hash =
-    SHA-256(canonical_cbor([
-        "grid/chain-base/v1",
-        domain_separator,
-        stream_id
-    ]))
-```
+`stream_id` is the canonical CBOR encoding of the sequence-space
+identifier. The four stream kinds are:
 
-**Known issue:** The `domain_separator` in `initial_chain_hash` uses the object's domain_separator. For multi-type streams (e.g., authorization stream carrying Grants, Leases, GrantRevocation, LeaseRevocation with different domain_separators), the behavior is ambiguous: which domain_separator is used for the chain-base? The specification does not clarify whether each object type gets its own chain or shares one chain with a fixed domain_separator. (open blocker)
+| Stream kind | `stream_id` encoding |
+|---|---|
+| Identity | `["peer", peer_id]` |
+| Authorization | `["auth", auth_key_id]` |
+| Reachability | `["device", device_id]` |
+| Service | `["service", service_id]` |
 
-Two distinct chain links exist. They serve different purposes and MUST NOT be conflated.
+Each is a definite-length array of two elements: a text string naming
+the stream kind, followed by the identifier.
 
-**Previous hash (previous_hash):** commits directly to the immediately preceding object's payload. It is an object field.
+### §3.7 Previous hash and previous chain hash
 
-```
-previous_hash(1) = omitted                    (not present)
-previous_hash(N) = object_commitment(N-1)     for N > 1
-```
+Two distinct values serve different purposes and MUST NOT be conflated.
 
-**Previous chain hash (previous_chain_hash):** the input to the chain construction. It is not an object field.
+**Previous hash** (`previous_hash`) is an object field that commits to
+the immediately preceding object's payload.
 
-```
-previous_chain_hash(1) = initial_chain_hash
-previous_chain_hash(N) = chain_hash(N-1)      for N > 1
-```
+    previous_hash(1) = omitted (field absent)
+    previous_hash(N) = object_commitment(N-1)   for N > 1
 
-**Chain hash (chain_hash):** the cumulative stream-history hash. It is an object field.
+**Previous chain hash** (`previous_chain_hash`) is a computed input, not
+a field.
 
-```
-chain_hash(N) =
-    SHA-256(canonical_cbor([
-        "grid/chain/v1",
-        previous_chain_hash(N),
-        object_commitment(N)
-    ]))
-```
+    previous_chain_hash(1) = initial_chain_hash
+    previous_chain_hash(N) = chain_hash(N-1)    for N > 1
 
-Where:
-- Element 0 is the text string "grid/chain/v1"
-- Element 1 is previous_chain_hash(N) as a CBOR byte string
-- Element 2 is object_commitment(N) as a CBOR byte string
+### §3.8 Chain hash
 
-The first object in every stream has sequence = 1. The value 0 is reserved for "uninitialized" and MUST NOT appear.
+    chain_hash(N) =
+        SHA-256(canonical_cbor([
+            "grid/chain/v1",
+            previous_chain_hash(N),
+            object_commitment(N)
+        ]))
 
-**Sequence-1 chain initialization:** For the first object in any stream (sequence = 1), the chain_hash is computed using the standard chain construction with previous_chain_hash(1) = initial_chain_hash. The chain_hash field of a sequence-1 object is therefore:
+Element 1 is `previous_chain_hash(N)` as a CBOR byte string. Element 2 is
+`object_commitment(N)` as a CBOR byte string.
 
-```
-chain_hash(1) = SHA-256(canonical_cbor([
-    "grid/chain/v1",
-    initial_chain_hash,
-    object_commitment(1)
-]))
-```
+The first object in every stream has `sequence = 1`. The value 0 is
+reserved for "uninitialized" and MUST NOT appear in any signed object.
 
-This is the ordinary sequence-1 chain hash. It is NOT equal to initial_chain_hash. The initial_chain_hash is the base state; chain_hash(1) is the first cumulative hash incorporating the first object's commitment.
+The chain hash commits to the entire stream history, not just to the
+previous object. This enables fork detection from a single branch.
 
+### §3.9 Payload ID
 
-### 3.6 Payload ID
+    payload_id =
+        SHA-256(canonical_cbor([
+            "grid/payload-id/v1",
+            unsigned_payload
+        ]))
 
-```
-payload_id =
-    SHA-256(canonical_cbor([
-        "grid/payload-id/v1",
-        unsigned_payload
-    ]))
-```
+The payload ID depends only on the semantic content of the unsigned
+payload. Two objects that mean the same thing have the same payload ID.
+Payload IDs are not unique per stream position.
 
-The payload ID depends only on the semantic content of the unsigned payload.
+### §3.10 Object ID
 
-### 3.7 Object ID
+    object_id =
+        SHA-256(canonical_cbor([
+            "grid/object-id/v1",
+            canonical_signed_object_bytes
+        ]))
 
-```
-object_id =
-    SHA-256(canonical_cbor([
-        "grid/object-id/v1",
-        canonical_signed_object_bytes
-    ]))
-```
+Element 1 is `canonical_signed_object_bytes` as a CBOR byte string.
+This value is the exact canonical CBOR encoding of the signed object —
+the wire representation. Implementations MUST NOT re-encode the signed
+object as a CBOR value before hashing.
 
-Where `canonical_signed_object_bytes` is the exact canonical CBOR encoding of the signed object — the byte-for-byte wire representation. It is not a CBOR value; it is a byte string in this construction.
+### §3.11 Signed object
 
-Implementations MUST NOT re-encode the signed object as a CBOR value before hashing.
+A signed object is a CBOR map containing all fields of the unsigned
+payload, plus:
 
-### 3.8 Signed object
+- `chain_hash` — a CBOR byte string.
+- `signature` — a CBOR byte string, or a two-element array of byte
+  strings for dual-signature schemas.
 
-A signed object is a CBOR map containing all fields of the unsigned payload, plus:
-- `chain_hash` — a byte string
-- `signature` — a byte string (or two-element array of byte strings for dual-signature schemas)
+### §3.12 Signature input
 
-The signed object is a CBOR value.
-
-### 3.9 Signature input
-
-```
-signature_input(N) =
-    canonical_cbor([
-        "grid/signature/v1",
-        domain_separator,
-        unsigned_payload,
-        chain_hash(N)
-    ])
-```
+    signature_input(N) =
+        canonical_cbor([
+            "grid/signature/v1",
+            domain_separator,
+            unsigned_payload,
+            chain_hash(N)
+        ])
 
 The signature is computed as:
 
-```
-signature(N) =
-    Ed25519_sign(signing_private_key, signature_input(N))
-```
+    signature(N) = Ed25519_sign(signing_private_key, signature_input(N))
 
-**Non-circularity:** The signature input MUST be reconstructible from the unsigned payload and the chain hash alone. The signature MUST NOT be part of any input to its own computation.
+The signature covers the unsigned payload directly. It covers
+`chain_hash`. It does not cover `payload_id`, which is a derived value.
 
-### 3.10 Serialization invariants
+Non-circularity: the signature input is reconstructible from the
+unsigned payload and the chain hash alone. The signature is not part of
+any input to its own computation.
 
-**S1 — Canonical form.** Two objects that represent the same protocol value MUST have identical canonical CBOR encodings.
+For dual-signature schemas, both signatures are over the same
+`signature_input`.
 
-**S2 — Signature domain separation.** Every cryptographic construction has a unique domain tag:
+### §3.13 Serialization invariants
+
+**S1 — Canonical form.** Two objects that represent the same protocol
+value have identical canonical CBOR encodings.
+
+**S2 — Signature domain separation.** Every cryptographic construction
+has a unique domain tag:
 
 | Tag | Construction |
-|-----|--------------|
+|---|---|
 | `"grid/commitment/v1"` | `commitment_preimage` |
 | `"grid/chain-base/v1"` | `initial_chain_hash` |
 | `"grid/chain/v1"` | `chain_hash` |
@@ -291,489 +377,436 @@ signature(N) =
 | `"grid/payload-id/v1"` | `payload_id` |
 | `"grid/object-id/v1"` | `object_id` |
 
-**S3 — Chain order.** The chain hash of sequence N depends on the chain hash of sequence N-1 and the object commitment of sequence N.
+**S3 — Chain order.** The chain hash at sequence N depends on the chain
+hash at sequence N−1 and the object commitment at sequence N.
 
-**S4 — Determinism.** All constructions are deterministic functions of their inputs.
+**S4 — Determinism.** All constructions are deterministic functions of
+their inputs.
 
-**S5 — Byte/value boundary.** The distinction between CBOR values and byte strings is normative in every construction.
+**S5 — Byte and value boundary.** The distinction between CBOR values
+and byte strings is normative in every construction.
 
-**S6 — Reconstruction.** Every derived value required for verification MUST be reconstructible from the canonical unsigned payload, applicable stream state, and the protocol rules. An implementation MUST NOT depend on non-canonical source representations, parser-preserved formatting, map insertion order, or locally generated serialization choices.
+**S6 — Reconstruction.** Every derived value required for verification
+is reconstructible from the canonical unsigned payload, applicable
+stream state, and the protocol rules. An implementation MUST NOT
+depend on non-canonical source representations, parser-preserved
+formatting, map insertion order, or locally generated serialization
+choices.
 
 ---
 
-## §4: COMMON STREAM ENVELOPE
+## §4. Common stream envelope
 
-### 4.1 Purpose
+Every signed object shares a common structural envelope.
 
-Every signed object shares a common structural envelope. §4 defines the fields of that envelope and the boundary between envelope fields and object-specific fields.
+### §4.1 Envelope shape
 
-### 4.2 Envelope overview
+    signed_object = {
+        domain_separator : text string,
+        sequence         : integer ≥ 1,
+        previous_hash?   : byte string (omitted at sequence 1),
+        ...schema-specific fields,
+        chain_hash       : byte string,
+        signature        : byte string or [byte string, byte string]
+    }
 
-```
-signed_object = {
-    domain_separator    : text string,
-    sequence            : integer >= 1,
-    previous_hash?      : byte string (omitted at sequence 1),
-    ...schema-specific fields,
-    chain_hash          : byte string,
-    signature           : byte string (or 2-element array)
-}
-```
+### §4.2 Field definitions
 
-### 4.3 Field definitions
+**`domain_separator`** — a CBOR text string identifying the object's
+schema family and version. It is part of the unsigned payload and is
+included in every derived value. There is no separate version field in
+the envelope.
 
-#### 4.3.1 domain_separator
+**`sequence`** — a CBOR unsigned integer, 1 to 2^64 − 1.
 
-Type: CBOR text string. The `domain_separator` identifies the object's schema family and version. It is drawn from the registered set (§4.5). The `domain_separator` is part of `unsigned_payload`. It is included in `commitment_preimage`, `payload_id`, and `signature_input`.
+**`previous_hash`** — a CBOR byte string, present only at sequence
+numbers greater than 1. At sequence 1 the field is omitted. A sequence-1
+object that contains `previous_hash` is malformed.
 
-There is no separate version field in the envelope. The schema version is carried by `domain_separator`.
+**`chain_hash`** — a CBOR byte string, computed per §3.8.
 
-#### 4.3.2 sequence
+**`signature`** — a CBOR byte string (64 bytes) for single-signature
+schemas, or a definite-length array of exactly two 64-byte byte strings
+for dual-signature schemas.
 
-Type: CBOR unsigned integer. Range: 1 to 2^64 − 1. The value 0 is reserved for "uninitialized" and MUST NOT appear in any signed object.
+### §4.3 Envelope invariants
 
-#### 4.3.3 previous_hash
+E1. `domain_separator` MUST be present.
+E2. `sequence` MUST be present and ≥ 1.
+E3. `previous_hash` MUST be omitted at sequence 1 and present at
+    sequence > 1.
+E4. `chain_hash` MUST be present.
+E5. `signature` MUST be present.
+E6. The unsigned payload MUST NOT contain a field named `chain_hash` or
+    `signature`.
+E7. The signed object MUST NOT contain any field outside the set of
+    unsigned-payload fields plus `chain_hash` and `signature`.
 
-Type: CBOR byte string (32 bytes). Optional; present only at sequence numbers greater than 1. At sequence 1, the field is omitted. It MUST NOT be present with a null value. A sequence-1 object that contains a `previous_hash` field is malformed.
+---
 
-Not to be confused with `previous_chain_hash`. The chain construction uses a value called `previous_chain_hash`, which is not a field of any object.
+## §5. Registered domain separators
 
-| Value | What it is | Where it lives |
-|-------|------------|----------------|
-| `previous_hash` | previous object's `object_commitment` | a field (omitted at sequence 1) |
-| `previous_chain_hash` | previous object's `chain_hash` (or `initial_chain_hash`) | computed input; not a field |
-
-#### 4.3.4 chain_hash
-
-Type: CBOR byte string (32 bytes). Added to the object after `unsigned_payload` is complete. Computed per §3.5.
-
-#### 4.3.5 signature
-
-Type: CBOR byte string (64 bytes) for single-signature schemas; definite-length CBOR array of exactly two 64-byte byte strings for dual-signature schemas.
-
-For dual-signature schemas, `signature` is a CBOR array `[signature_0, signature_1]` where ordering is defined by the schema. The array MUST be definite-length and MUST contain exactly two elements. For dual-signature schemas, both signatures MUST be over the same `signature_input`.
-
-#### 4.3.6 Schema-specific fields
-
-Every object schema defines the schema-specific fields that appear in `unsigned_payload`, in addition to the common envelope fields.
-
-### 4.4 Envelope invariants
-
-**E1.** `domain_separator` MUST be present.
-**E2.** `sequence` MUST be present and ≥ 1.
-**E3.** `previous_hash` MUST be omitted at sequence 1 and present at sequence numbers greater than 1.
-**E4.** `chain_hash` MUST be present.
-**E5.** `signature` MUST be present.
-**E6.** `unsigned_payload` MUST NOT contain any field named `chain_hash` or `signature`.
-**E7.** The signed object MUST NOT contain any field outside the set of `unsigned_payload` fields plus `chain_hash` and `signature`.
-
-### 4.5 Registered domain separators
+Each domain separator identifies exactly one schema family and version.
+A future schema version of the same family uses a distinct separator.
+Unknown separators are rejected.
 
 | Domain separator | Object |
-|------------------|--------|
-| `"grid/identity-document/v1"` | IdentityDocument |
-| `"grid/device-binding/v1"` | DeviceBinding |
-| `"grid/service-binding/v1"` | ServiceBinding |
-| `"grid/key-binding/v1"` | KeyBinding |
-| `"grid/key-revocation/v1"` | KeyRevocation |
-| `"grid/relationship-assertion/v1"` | RelationshipAssertion |
-| `"grid/relationship-termination/v1"` | RelationshipTermination |
-| `"grid/rendezvous-manifest/v1"` | Principal RendezvousManifest |
-| `"grid/operator-manifest/v1"` | OperatorManifest |
-| `"grid/relationship-grant/v1"` | Grant |
-| `"grid/authorization-lease/v1"` | Lease |
-| `"grid/grant-revocation/v1"` | GrantRevocation |
-| `"grid/lease-revocation/v1"` | LeaseRevocation |
-| `"grid/service-record/v1"` | ServiceRecord |
-| `"grid/reachability-record/v1"` | ReachabilityRecord |
-| `"grid/stream-resolution/v1"` | StreamResolution |
-| `"grid/identity-continuity/v1"` | IdentityContinuity |
-| `"grid/relay-ticket/v1"` | RelayTicket |
-| `"grid/relay-node-record/v1"` | RelayNodeRecord |
-
-Registry rules:
-- Domain separators are ASCII text strings
-- Each value identifies exactly one object schema family and version
-- A future schema version of the same family MUST use a distinct domain separator
-- Unknown domain separators MUST be rejected
+|---|---|
+| `grid/identity-document/v1` | `IdentityDocument` |
+| `grid/device-binding/v1` | `DeviceBinding` |
+| `grid/service-binding/v1` | `ServiceBinding` |
+| `grid/key-binding/v1` | `KeyBinding` |
+| `grid/key-revocation/v1` | `KeyRevocation` |
+| `grid/relationship-assertion/v1` | `RelationshipAssertion` |
+| `grid/relationship-termination/v1` | `RelationshipTermination` |
+| `grid/rendezvous-manifest/v1` | `RendezvousManifest` |
+| `grid/operator-manifest/v1` | `OperatorManifest` |
+| `grid/relationship-grant/v1` | `Grant` |
+| `grid/authorization-lease/v1` | `Lease` |
+| `grid/grant-revocation/v1` | `GrantRevocation` |
+| `grid/lease-revocation/v1` | `LeaseRevocation` |
+| `grid/service-record/v1` | `ServiceRecord` |
+| `grid/reachability-record/v1` | `ReachabilityRecord` |
+| `grid/stream-resolution/v1` | `StreamResolution` |
+| `grid/identity-continuity/v1` | `IdentityContinuity` |
+| `grid/relay-ticket/v1` | `RelayTicket` |
+| `grid/relay-node-record/v1` | `RelayNodeRecord` |
+| `grid/credit-receipt/v1` | `CreditReceipt` |
 
 ---
 
-## §5: SIGNATURE SEMANTICS AND VERIFICATION
+## §6. Object registry and signing authority
 
-### 5.1 Purpose
+Each object is signed by an authority role and belongs to a stream.
+Objects with no stream (relay tickets, relay node records) carry the
+full envelope but are not published in a sequence space.
 
-§5 defines which key role is authorized to sign each object type, and the single authoritative verification procedure for all objects.
+| Object | Signer | Stream |
+|---|---|---|
+| IdentityDocument | Identity Root | `stream:identity` |
+| DeviceBinding | Identity Root (or delegated device authority) | `stream:identity` |
+| ServiceBinding | Identity Root (or delegated service authority) | `stream:identity` |
+| KeyBinding | Identity Root | `stream:identity` |
+| KeyRevocation | Identity Root | `stream:identity` |
+| RelationshipAssertion | Identity Root | `stream:identity` |
+| RelationshipTermination | Identity Root | `stream:identity` |
+| IdentityContinuity | Previous and New Identity Root | `stream:identity` |
+| StreamResolution | Pre-fork authority | `stream:identity` |
+| RendezvousManifest | Identity Root | `stream:identity` |
+| OperatorManifest | Identity Root | `stream:identity` |
+| Grant | Authorization Key | `stream:authorization:{auth_key_id}` |
+| Lease | Authorization Key | `stream:authorization:{auth_key_id}` |
+| GrantRevocation | Identity Root | `stream:identity` |
+| LeaseRevocation | Authorization Key | `stream:authorization:{auth_key_id}` |
+| ReachabilityRecord | Device Key | `stream:reachability:{device_id}` |
+| ServiceRecord | Service Key | `stream:service:{service_id}` |
+| RelayTicket | Relay Authority Key | not streamed |
+| RelayNodeRecord | Relay Node Key | not streamed |
+| CreditReceipt | Operator | `stream:credit:{operator_id}` |
 
-### 5.2 Signing-authority assignment
+### §6.1 Object schema stubs
 
-| Object | Authorized signer |
-|--------|-------------------|
-| IdentityDocument | Identity Root |
-| DeviceBinding | Identity Root (or delegated device-authority key) |
-| ServiceBinding | Identity Root (or delegated service-authority key) |
-| KeyBinding | Identity Root |
-| KeyRevocation | Identity Root |
-| RelationshipAssertion | One principal's Identity Root (the issuer) |
-| RelationshipTermination | One principal's Identity Root (the terminating principal) |
-| Principal RendezvousManifest | Principal's Identity Root |
-| OperatorManifest | Operator's Identity Root |
-| Grant | Authorization Key |
-| Lease | Authorization Key |
-| GrantRevocation | Authorization Key |
-| LeaseRevocation | Authorization Key |
-| ServiceRecord | Service Key |
-| ReachabilityRecord | Device Key |
-| StreamResolution | Pre-fork authority above the disputed stream |
-| IdentityContinuity | Both previous and new Identity Roots (dual signature) |
-| RelayTicket | Relay Authority Key |
-| RelayNodeRecord | Relay Node Key |
+Each object is fully specified in §7. Where an object is registered but
+not yet specified, this section records the fact.
 
-### 5.3 Verification procedure (atomic, mutation-free)
-
-When a verifier receives an object, it MUST execute the following procedure. Steps 1–11 are **validation phases** — the verifier MUST NOT advance or mutate its accepted stream state during these phases. Validation is pure with respect to accepted state; commitment (step 12) is the only mutation.
-
-**Step 1: Parse CBOR**
-- Decode the input as CBOR.
-- Verify it is in canonical form per §2.
-- If invalid or non-canonical: REJECT as `MALFORMED_ENCODING`.
-
-**Step 2: Validate envelope structure**
-- Verify all required envelope fields are present: `domain_separator`, `sequence`, `chain_hash`, `signature`.
-- Verify `sequence` ≥ 1.
-- Verify `previous_hash` is absent when `sequence == 1` and present when `sequence > 1`.
-- Verify no unknown fields exist (E7).
-- If any check fails: REJECT as `MALFORMED_ENVELOPE`.
-
-**Step 3: Validate domain separator**
-- Verify `domain_separator` is a registered value (§4.5).
-- If not registered: REJECT as `UNKNOWN_SCHEMA`.
-
-**Step 4: Validate schema-specific fields**
-- Validate all schema-specific fields per the object's schema (§6).
-- If validation fails: REJECT as `MALFORMED_SCHEMA`.
-
-**Step 5: Validate sequence and previous_hash consistency**
-- Verify `sequence` ≥ 1.
-- Verify `previous_hash` presence matches sequence (absent at 1, present at >1).
-- If `sequence > 1`, verify `previous_hash` is a 32-byte byte string.
-- If any check fails: REJECT as `INVALID_SEQUENCE` or `INVALID_PREVIOUS_HASH` respectively.
-
-**Step 6: Reconstruct and verify chain linkage**
-- Reconstruct `unsigned_payload` = signed object minus `{chain_hash, signature}`.
-- Compute `commitment_preimage` = `canonical_cbor(["grid/commitment/v1", domain_separator, unsigned_payload])`.
-- Compute `object_commitment` = `SHA-256(commitment_preimage)`.
-- If `sequence == 1`: expected `previous_chain_hash` = `initial_chain_hash` (computed per §3.5).
-- If `sequence > 1`: expected `previous_chain_hash` = the accepted `chain_hash` of sequence-1 in this stream.
-- Verify `previous_hash` (if present) equals `object_commitment(sequence-1)`.
-- Compute `chain_hash` = `SHA-256(canonical_cbor(["grid/chain/v1", previous_chain_hash, object_commitment]))`.
-- Verify computed `chain_hash` equals the object's `chain_hash` field.
-- If any check fails: REJECT as `CHAIN_MISMATCH`.
-
-**Open blocker:** The phrase "accepted `chain_hash` of sequence-1" is ambiguous — it reads as "the object at sequence number 1" rather than "the object at sequence N−1" (the predecessor). The intended rule is predecessor commitment / chain_hash(N−1) semantics. The current wording in §5.3 (authoritative per §9) is ambiguous and must be clarified. The verifier must retain or recompute the predecessor's object_commitment (previous_hash) and chain_hash (previous_chain_hash) for the next chain check. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
-
-**Step 7: Reconstruct signature input**
-- Compute `signature_input` = `canonical_cbor(["grid/signature/v1", domain_separator, unsigned_payload, chain_hash])`.
-
-**Step 8: Verify signature(s)**
-- Determine the expected signing public key per §5.2 and the current accepted authority state.
-- For single-signature schemas: verify `Ed25519_verify(public_key, signature_input, signature)`.
-- For dual-signature schemas (`IdentityContinuity`): verify both signatures against the same `signature_input` using `previous_root` and `new_root` respectively.
-- If verification fails: REJECT as `INVALID_SIGNATURE`.
-
-**Step 9: Validate signing authority**
-- Verify the signing key's role matches the authorized signer for this object type (§5.2).
-- Verify the key is currently authorized (not revoked, not superseded beyond its effective sequence).
-- If authority validation fails: REJECT as `UNAUTHORIZED_SIGNER`.
-
-**Step 10: Validate temporal and revocation state**
-- Verify `issued_at` ≤ current time + `MAX_CLOCK_SKEW` (5 minutes).
-- Verify `not_before` ≤ current time + `MAX_CLOCK_SKEW` (or object is not yet effective).
-- Verify `expires_at` > current time - `MAX_CLOCK_SKEW` (or object is expired).
-- Verify no applicable revocation invalidates this object (key revocation, grant revocation, lease revocation, relationship termination).
-- If any check fails: REJECT as `EXPIRED`, `NOT_YET_VALID`, `REVOKED`, or `TERMINATED` respectively.
-
-**Step 11: Validate semantic rules**
-- Apply the object-type-specific semantic rules (§6–§8, §54).
-- For `StreamResolution`: verify resolution authority, fork position, hash selection, monotonicity.
-- For `IdentityContinuity`: verify sequence=1, omitted previous_hash, chain_hash matches successor initial_chain_hash, dual signatures, trust chain, predecessor chain_hash match, no duplicate successor stream, not expired.
-- For authorization objects (Grant, Lease): verify relationship is `RECOGNIZED`, grant is `GRANTED`, key is `ACTIVE`/`SUPERSEDED`, no revocation applies, offline tolerance not exceeded.
-- If any semantic rule fails: REJECT as `SEMANTIC_VIOLATION`.
-
-**Step 12: Commit**
-- If all steps 1–11 pass: ACCEPT the object.
-- Atomically update the verifier's accepted state for the relevant stream and any derived state (relationship, grant, lease, chain state).
-- The object is now part of the accepted state.
-
-### 5.4 Delegated signers
-
-`DeviceBinding` MAY be signed by a device-authority key delegated by the Identity Root. `ServiceBinding` MAY be signed by a service-authority key. Delegations MUST be present in the verifier's accepted identity state.
-
-### 5.5 Dual-signature objects
-
-Only `IdentityContinuity` uses dual signatures in V1.
-
-For `IdentityContinuity`:
-```
-signature: [
-    sig_prev,   // by previous_root
-    sig_new     // by new_root
-]
-```
-
-Both signatures are over the same `signature_input`.
-
-### 5.6 StreamResolution signing
-
-A `StreamResolution` MUST be signed by an authority above the disputed stream in the authority hierarchy, trusted from state accepted **before** the fork was observed. The resolver's stream position is expressed by the resolution object's own `sequence`, `chain_hash`, and `previous_hash`. The disputed stream's position is expressed by `disputed_sequence`, a value that MUST NOT be compared with the resolution's `sequence`.
-
-### 5.7 Rejection classes
-
-When verification fails, the verifier MUST classify the failure into exactly one of the following classes. Classes are ordered by precedence — the first matching class applies.
-
-| Class | Meaning | When raised (step) |
-|-------|---------|-------------------|
-| `MALFORMED_ENCODING` | Input is not valid canonical CBOR | Step 1 |
-| `MALFORMED_ENVELOPE` | Envelope fields missing, mistyped, unknown fields present, or E1–E7 violated | Step 2 |
-| `UNKNOWN_SCHEMA` | `domain_separator` not registered | Step 3 |
-| `MALFORMED_SCHEMA` | Schema-specific fields fail validation | Step 4 |
-| `INVALID_SEQUENCE` | `sequence` is 0 or otherwise invalid | Step 5 |
-| `INVALID_PREVIOUS_HASH` | `previous_hash` presence/type does not match sequence | Step 5 |
-| `CHAIN_MISMATCH` | `previous_hash` or `chain_hash` does not match stream state | Step 6 |
-| `INVALID_SIGNATURE` | Signature does not verify | Step 8 |
-| `UNAUTHORIZED_SIGNER` | Signing key role is not authorized or key is revoked/superseded | Step 9 |
-| `EXPIRED` | Object timestamp check failed (expired) | Step 10 |
-| `NOT_YET_VALID` | Object `not_before` in the future | Step 10 |
-| `REVOKED` | Object invalidated by key revocation, grant revocation, or lease revocation | Step 10 |
-| `TERMINATED` | Relationship terminated by accepted `RelationshipTermination` | Step 10 |
-| `SEMANTIC_VIOLATION` | Object-type-specific semantic rule violated | Step 11 |
-
-**Precedence note:** Steps execute sequentially. The first rejection encountered determines the class. An object that is both `MALFORMED_ENCODING` and `INVALID_SIGNATURE` is classified as `MALFORMED_ENCODING` because step 1 fails before step 8 is reached.
+| Object | Status |
+|---|---|
+| KeyBinding | schema specified in §7 |
+| DeviceBinding | schema specified in §7 |
+| ServiceBinding | schema specified in §7 |
+| OperatorManifest | schema not yet specified |
+| LeaseRevocation | schema not yet specified |
+| RelayNodeRecord | schema not yet specified |
+| CreditReceipt | schema not yet specified |
+| Relay Authority Key | role, not an object |
+| Relay Node Key | role, not an object |
 
 ---
 
-## §6: OBJECT SCHEMAS
+## §7. Object schemas
 
-[Unchanged — placeholder for object schemas]
+### §7.1 Canonical examples
 
-**Known issue:** Object schemas for all 19 domain separators (§4.5) are not yet authored in this section. Schema-specific validation in §5.3 Step 4 / §9 Phase 4 references §6 as the authority, but schemas currently reside in PROTOCOL.md §10–§16, §30–§33, §36, §52, §54. This section must be completed before implementation can proceed. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+Examples below are illustrative. They use `Alice`, `Bob`, and `Charlie`
+as example principals. Bytes are shown as canonical CBOR byte strings.
+`previous_hash` is omitted at sequence 1 and present at later sequences.
 
----
+### §7.2 IdentityDocument
 
-## §7: STREAM IDENTITY
+    {
+        "domain_separator": "grid/identity-document/v1",
+        "sequence": 1,
+        "peer_id": "peer:v1:7f3a9c2e5d91b0a4c7e8126fa31d449b",
+        "identity_root": <byte string>,
+        "authorized_keys": [ <KeyBinding>, ... ],
+        "device_bindings": [ <DeviceBinding>, ... ],
+        "service_bindings": [ <ServiceBinding>, ... ],
+        "issued_at": <integer>,
+        "not_before": <integer>,
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-### Stream Identity
+`authorized_keys`, `device_bindings`, and `service_bindings` are sets,
+encoded per §2.8.
 
-**Known issue:** This section defines a hash-derived opaque `stream_id` model (`stream_id = H(principal_id || signing_key_id || stream_context || epoch)`) that is incompatible with the text-string stream identifiers defined in PROTOCOL.md §45.1 (`stream:identity`, `stream:reachability:<device_id>`, `stream:service:<service_id>`, `stream:authorization:<auth_key_id>`). The two models coexist in normative text and must be reconciled before implementation. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+### §7.3 RelationshipAssertion
 
-**Core Concepts**
+    {
+        "domain_separator": "grid/relationship-assertion/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,   (present when sequence > 1)
+        "relationship_id": <uuid as byte string>,
+        "subject_principal": "peer:v1:...",
+        "issued_at": <integer>,
+        "not_before": <integer>,
+        "expires_at": <integer>,          (optional; omit if absent)
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-| Term | Definition |
-|------|------------|
-| **principal_id** | Globally unique identifier for the entity (human, service, device) that originates or controls the stream. Immutable for the lifetime of the principal.
-| **signing_key_id** | Identifier for a specific public key used to sign stream frames. Bound to a principal via a *key authorization record*. Rotatable; multiple keys may be active concurrently.
-| **stream_id** | Deterministic identifier for a logical data stream. Derived as `stream_id = H(principal_id || signing_key_id || stream_context || epoch)` where `H` is the protocol hash function, `stream_context` is an application-defined namespace, and `epoch` is the generation counter.
-| **stream_epoch** | Monotonically increasing generation counter for a given (principal, signing_key, stream_context) tuple. Starts at 0; increments on key rotation, re-keying, or explicit rebinding. Encoded as a varint.
-| **issuer** | The principal that *authorizes* a signing_key for use with a specific stream_context. May equal the principal (self-issued) or be a distinct delegating authority. Recorded in the key authorization record.
-| **stream_context** | Application-scoped namespace string (e.g., "grid.msg.v1", "grid.fs.v2/logs") that disambiguates streams sharing the same principal and signing key. Chosen by the issuer at stream creation.
+### §7.4 Grant
 
-**Derivation**
+    {
+        "domain_separator": "grid/relationship-grant/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,
+        "grant_id": <uuid as byte string>,
+        "relationship_id": <uuid as byte string>,
+        "issuer": "peer:v1:...",
+        "subject": "peer:v1:...",
+        "device_scope": [ <device_id>, ... ],       (optional; set)
+        "capabilities": [ <Capability>, ... ],       (set)
+        "resources": [ <Resource>, ... ],            (set)
+        "constraints": { <text string>: <text string> },
+        "lease_policy": {
+            "default_duration": <integer seconds>,
+            "max_duration": <integer seconds>,
+            "max_offline_tolerance": <integer seconds>
+        },
+        "issued_at": <integer>,
+        "not_before": <integer>,
+        "expires_at": <integer>,         (optional)
+        "note": <text string>,           (optional)
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-```
-stream_id = hash(principal_id || signing_key_id || stream_context || encode_varint(stream_epoch))
-```
+### §7.5 Lease
 
-The `stream_id` is stable within an epoch. Changing any input produces a new `stream_id`, which signals a new logical stream to routers and verifiers.
+    {
+        "domain_separator": "grid/authorization-lease/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,
+        "grant_id": <uuid as byte string>,
+        "valid_until_absolute": <integer>,   (exactly one of these
+        "valid_for_duration": <integer>,      two is present)
+        "issued_at": <integer>,
+        "issuer": "peer:v1:...",
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-**Key Authorization Record**
+### §7.6 ReachabilityRecord
 
-A signed structure published by the issuer binding `(principal_id, signing_key_id, stream_context, epoch)` with validity windows and revocation flags. Verifiers fetch this record to confirm that a signing key is authorized for the claimed stream.
+    {
+        "domain_separator": "grid/reachability-record/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,
+        "device_id": <uuid as byte string>,
+        "device_key": <byte string>,
+        "endpoints": [
+            {
+                "protocol": "direct",
+                "address": "203.0.113.42:51820",
+                "priority": 100,
+                "transport": "udp"
+            },
+            {
+                "protocol": "relay",
+                "address": "relay-region-a.grid.example",
+                "priority": 50,
+                "transport": "tcp"
+            }
+        ],
+        "issued_at": <integer>,
+        "expires_at": <integer>,
+        "published_at": <integer>,
+        "identity_sequence": <integer>,
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-**Identity Refresh**
+`endpoints` is a set, encoded per §2.8. It is ordered by bytewise
+lexicographic comparison of canonical element encodings, not by
+priority.
 
-When `stream_epoch` increments, the issuer publishes a new key authorization record. The old `stream_id` remains verifiable for its validity window; the new `stream_id` takes over for subsequent frames. Continuity is proven via the epoch chain in the authorization records — **not** by hashing frame payloads (see PROTOCOL.md §Stream Resolution).
+### §7.7 ServiceRecord
 
----
-*Missing schema bindings (flagged for SCHEMA.md):*
-- KeyAuthorizationRecord wire format
-- stream_context encoding rules (length, charset)
-- epoch varint encoding (which varint spec)
-- issuer delegation chain representation
-- principal_id format (DID? raw key? UUID?)
-- signing_key_id format (key fingerprint? JWK thumbprint?)
+    {
+        "domain_separator": "grid/service-record/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,
+        "service_id": <uuid as byte string>,
+        "service_key": <byte string>,
+        "service_type": <text string>,
+        "endpoint": <text string>,
+        "metadata": { <text string>: <text string> },
+        "issued_at": <integer>,
+        "expires_at": <integer>,
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
-*Open dependencies (see open_dependencies output):*
-- SCHEMA.md: KeyAuthorizationRecord, stream_context, epoch encoding
-- PROTOCOL.md: stream resolution algorithm, epoch chain verification
-- CRYPTO.md: hash function H, signature algorithm bindings
-- ENCODING.md: varint spec, canonical serialization for derivation inputs
-- ROUTING.md: routing key definition, epoch-aware updates
-- CONTINUITY.md: epoch chain as sole continuity mechanism
+### §7.8 RelayTicket
 
-**Open blocker:** The above "Missing schema bindings" and "Open dependencies" blocks reference six files (SCHEMA.md, CRYPTO.md, ENCODING.md, ROUTING.md, CONTINUITY.md) that do not exist in the repository. These are dangling normative references to missing spec files (KeyAuthorizationRecord, stream_context, epoch encoding, varint spec, hash function, signature bindings, routing key, continuity mechanism), not mere repository hygiene. They represent missing normative material required for implementation. (see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
+    {
+        "domain_separator": "grid/relay-ticket/v1",
+        "sequence": <integer>,
+        "previous_hash": <byte string>,
+        "relay_id": <byte string>,
+        "relay_key": <byte string>,
+        "subject_peer": "peer:v1:...",
+        "subject_device": <uuid as byte string>,
+        "destination_peer": "peer:v1:...",
+        "destination_device": <uuid as byte string>,
+        "capacity": <integer bytes>,
+        "duration": <integer seconds>,
+        "issued_at": <integer>,
+        "expires_at": <integer>,
+        "priority_class": "free" | "standard" | "priority" | "dedicated",
+        "chain_hash": <byte string>,
+        "signature": <byte string>
+    }
 
----
+### §7.9 Remaining schemas
 
-## §8: CANONICAL FORMS
-
-[Unchanged — placeholder for canonical forms]
-
-**Known issue:** This section is a placeholder. Canonical form definitions for all object types are required for test vector generation and interoperability. (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
-
----
-
-## §9: VERIFICATION PROCEDURE — DETAILED REFERENCE
-
-**This section provides a reference-level restatement of the verification procedure defined in §5.3. It is normative. In case of any discrepancy between §5.3 and this section, §5.3 takes precedence.**
-
-**Known issue:** This section duplicates the verification procedure from §5.3 with a stated tiebreak (§5.3 takes precedence). Normative text has two copies rather than a single source of truth. §9 should be marked informative/reference-only. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
-
-The verification procedure consists of 12 sequential validation phases. Validation is pure with respect to accepted state; commitment is the only mutation.
-
-### Phase 1: CBOR Parsing and Canonical Form
-- Decode input as CBOR.
-- Verify canonical encoding per §2 (major types, integer representation, byte/text string constraints, array/map definiteness, key ordering, set semantics, null/optional rules, floating-point prohibition, indefinite-length prohibition, duplicate prohibition, integer bounds).
-- Reject as `MALFORMED_ENCODING` if any check fails.
-
-### Phase 2: Envelope Structure Validation
-- Verify required fields: `domain_separator`, `sequence`, `chain_hash`, `signature` present.
-- Verify `sequence` ≥ 1.
-- Verify `previous_hash` absent iff `sequence == 1`; present and 32-byte iff `sequence > 1`.
-- Verify no fields outside `unsigned_payload` ∪ `{chain_hash, signature}` (E7).
-- Reject as `MALFORMED_ENVELOPE` if any check fails.
-
-### Phase 3: Domain Separator Validation
-- Verify `domain_separator` is in the registered set (§4.5).
-- Reject as `UNKNOWN_SCHEMA` if not registered.
-
-### Phase 4: Schema-Specific Field Validation
-- Validate all schema-specific fields against the schema for the registered `domain_separator` (§6).
-- Reject as `MALFORMED_SCHEMA` if validation fails.
-
-### Phase 5: Sequence and Previous_Hash Consistency
-- Verify `sequence` ≥ 1 (redundant with Phase 2 but explicit).
-- Verify `previous_hash` presence matches `sequence`.
-- If `sequence > 1`, verify `previous_hash` is a 32-byte byte string.
-- Reject as `INVALID_SEQUENCE` or `INVALID_PREVIOUS_HASH` respectively.
-
-### Phase 6: Chain Linkage Verification
-- Reconstruct `unsigned_payload` = object minus `{chain_hash, signature}`.
-- Compute `commitment_preimage` per §3.3.
-- Compute `object_commitment` per §3.4.
-- Determine `previous_chain_hash`:
-  - If `sequence == 1`: `initial_chain_hash` per §3.5.
-  - If `sequence > 1`: the verifier's accepted `chain_hash` for `sequence-1` in the same `(issuer, stream_id)`.
-- Verify `previous_hash` == `object_commitment(sequence-1)` (when `sequence > 1`).
-- Compute `chain_hash` per §3.5 using `previous_chain_hash` and `object_commitment`.
-- Verify computed `chain_hash` == object's `chain_hash` field.
-- Reject as `CHAIN_MISMATCH` if any check fails.
-
-**Known issue:** §5.3 Step 6 (authoritative) phrases the `sequence > 1` case as "the accepted `chain_hash` of sequence-1" which reads ambiguously as "the object at sequence number 1" rather than "the object at sequence N-1." §9 Phase 6 phrases it correctly ("the verifier's accepted `chain_hash` for `sequence-1`"). Since §5.3 is authoritative per §9, the authoritative text contains the ambiguity. (open blocker; see design/KNOWN-LIMITATIONS.md §Unresolved Contradictions)
-
-### Phase 7: Signature Input Reconstruction
-- Compute `signature_input` per §3.9 using `domain_separator`, `unsigned_payload`, and verified `chain_hash`.
-
-### Phase 8: Signature Verification
-- Determine expected signing public key from accepted authority state per §5.2.
-- For single-signature: verify `Ed25519_verify(pubkey, signature_input, signature)`.
-- For dual-signature (`IdentityContinuity`): verify both `signature[0]` under `previous_root` and `signature[1]` under `new_root`, both over the same `signature_input`.
-- Reject as `INVALID_SIGNATURE` if verification fails.
-
-### Phase 9: Authority Validation
-- Verify signing key role matches authorized signer for `domain_separator` (§5.2).
-- Verify key is currently authorized:
-  - Not revoked by `KeyRevocation` with `effective_sequence` ≤ object's sequence (for authorization stream objects).
-  - Not superseded without valid transition.
-  - Delegation chain valid (for delegated signers).
-- Reject as `UNAUTHORIZED_SIGNER` if validation fails.
-
-### Phase 10: Temporal and Revocation Validation
-- `issued_at` ≤ now + `MAX_CLOCK_SKEW` (else `EXPIRED` semantics if past, but `issued_at` in future is `NOT_YET_VALID`).
-- `not_before` ≤ now + `MAX_CLOCK_SKEW` (else `NOT_YET_VALID`).
-- `expires_at` > now - `MAX_CLOCK_SKEW` (else `EXPIRED`).
-- No applicable revocation: key revocation, grant revocation, lease revocation, relationship termination.
-- Reject as `EXPIRED`, `NOT_YET_VALID`, `REVOKED`, or `TERMINATED` respectively.
-
-### Phase 11: Semantic Validation
-- Apply object-type-specific semantic rules:
-  - `StreamResolution`: authority above disputed stream trusted pre-fork; `disputed_sequence` matches observed fork; `accepted_hash` ∈ `disputed_hashes`; monotonic in resolver's stream; chain valid.
-  - `IdentityContinuity`: `sequence==1`; `previous_hash` omitted; `chain_hash` == successor `initial_chain_hash`; dual signatures valid; trust chain from pre-transition root; `previous_chain_hash` matches accepted terminal hash; no duplicate successor; not expired.
-  - Authorization objects (Grant, Lease): relationship `RECOGNIZED`; grant `GRANTED`; key `ACTIVE`/`SUPERSEDED`; no revocation; offline tolerance not exceeded.
-  - Other types: per their schema (§6–§8, §54).
-- Reject as `SEMANTIC_VIOLATION` if any rule fails.
-
-### Phase 12: Acceptance and State Commitment
-- If all phases 1–11 pass: ACCEPT.
-- Atomically update accepted stream state and all derived state (chain state, relationship state, grant state, lease state, key state).
-- Record `acceptance_time` (monotonic) for relative validity.
-
----
-
-## §10: REJECTION CLASSES AND OUTCOMES REGISTRY
-
-### 10.1 Rejection Classes (Authoritative)
-
-The following table defines the complete, exhaustive set of rejection classes. Every verification failure maps to exactly one class. The classes are listed in the order they are encountered during the verification procedure (§5.3 / §9). The first matching class applies.
-
-| Class | Meaning | Source Phase | Notes |
-|-------|---------|--------------|-------|
-| `MALFORMED_ENCODING` | Input is not valid canonical CBOR | §9 Phase 1 | Includes non-canonical map ordering, non-shortest integers, indefinite lengths, disallowed major types, invalid UTF-8, non-NFC text, duplicate keys/elements, wrong key types, floating-point values |
-| `MALFORMED_ENVELOPE` | Envelope structure invalid per E1–E7 | §9 Phase 2 | Missing required fields, `sequence` < 1, `previous_hash` presence mismatch, unknown fields |
-| `UNKNOWN_SCHEMA` | `domain_separator` not in registry | §9 Phase 3 | |
-| `MALFORMED_SCHEMA` | Schema-specific fields fail validation | §9 Phase 4 | Per-object schema rules (§6) |
-| `INVALID_SEQUENCE` | `sequence` == 0 or out of range | §9 Phase 5 | |
-| `INVALID_PREVIOUS_HASH` | `previous_hash` presence/type inconsistent with `sequence` | §9 Phase 5 | Present at seq 1, absent at seq > 1, wrong length |
-| `CHAIN_MISMATCH` | `previous_hash` or `chain_hash` inconsistent with stream state | §9 Phase 6 | Includes wrong `previous_chain_hash`, wrong `object_commitment` |
-| `INVALID_SIGNATURE` | Signature verification fails | §9 Phase 8 | Wrong key, tampered data, dual-sig mismatch |
-| `UNAUTHORIZED_SIGNER` | Signer lacks required role or key not authorized | §9 Phase 9 | Role mismatch, key revoked, key superseded, delegation missing |
-| `NOT_YET_VALID` | `not_before` > now + `MAX_CLOCK_SKEW` | §9 Phase 10 | |
-| `EXPIRED` | `issued_at` or `expires_at` check failed | §9 Phase 10 | |
-| `REVOKED` | Object invalidated by accepted revocation | §9 Phase 10 | Key revocation, grant revocation, lease revocation |
-| `TERMINATED` | Relationship terminated | §9 Phase 10 | Accepted `RelationshipTermination` for the `relationship_id` |
-| `SEMANTIC_VIOLATION` | Object-type-specific semantic rule violated | §9 Phase 11 | Covers `StreamResolution`, `IdentityContinuity`, auth rules, etc. |
-
-### 10.2 Outcomes Registry (Authoritative)
-
-The verification procedure produces exactly one of the following outcomes. There are no other outcomes.
-
-| Outcome | Meaning | State Effect |
-|---------|---------|--------------|
-| `ACCEPT` | All validation phases passed | Atomic state commit (§5.3 Step 12 / §9 Phase 12) |
-| `REJECT: <class>` | Validation failed at the first class encountered | No state mutation; failure recorded for diagnostics |
-
-**Invariant:** Verification is a pure function of (input object, accepted state, current time). It produces either `ACCEPT` or `REJECT: <class>`. It never produces a partial acceptance or an intermediate state.
-
-### 10.3 Processing Model Summary
-
-```
-function verify(object_bytes, accepted_state, now):
-    for phase in 1..11:
-        result = run_phase(phase, object_bytes, accepted_state, now)
-        if result != CONTINUE:
-            return REJECT(result.class)
-    return ACCEPT(commit(accepted_state, object))
-```
+`RendezvousManifest`, `OperatorManifest`, `KeyRevocation`,
+`RelationshipTermination`, `IdentityContinuity`, `StreamResolution`,
+`GrantRevocation`, `LeaseRevocation`, `RelayNodeRecord`, `CreditReceipt`
+follow the same envelope structure and are defined in later sections of
+this document when their schemas are finalized.
 
 ---
 
-## Unresolved Dependencies
+## §8. Verification procedure
 
-**Known issue:** The following items are unresolved dependencies that block implementation. They are tracked here and in design/KNOWN-LIMITATIONS.md.
+A verifier processes a candidate object in the order below. Each step
+has a specific rejection class.
 
-1. **§6 Object Schemas** — The semantic validation rules in §5.3 Step 11 / §9 Phase 11 and the `MALFORMED_SCHEMA` rejection class require complete object schemas for all 19 object types. These schemas are not yet specified in OBJECTS.md. (open blocker)
+**Step 1 — Parse.** Decode bytes as CBOR per §2. Reject
+`MALFORMED_ENCODING` if the bytes are not canonical.
 
-2. **Stream State Lookup Semantics** — Phase 6 (§9) and Step 6 (§5.3) refer to "the verifier's accepted `chain_hash` for sequence-1 in the same `(issuer, stream_id)`". The precise API/interface for this lookup (including handling of gaps, forks, and the `SYNCING`/`FORKED` states from PROTOCOL.md §47) is defined in PROTOCOL.md §47 but the interaction contract between the verification procedure and the stream state machine needs explicit specification. (open blocker)
+**Step 2 — Envelope validation.** Verify required envelope fields
+(§4.3 E1–E7). Reject `MALFORMED_ENVELOPE`.
 
-3. **Authority State Representation** — Step 9 / Phase 9 requires determining "the expected signing public key from accepted authority state per §5.2". The representation of accepted authority state (identity root, authorized keys, delegations, revocation state, key status) is defined in PROTOCOL.md §47 but the query interface (e.g., "is key K authorized for role R at sequence S?") is not formally specified in OBJECTS.md. (open blocker)
+**Step 3 — Domain separator validation.** Verify the separator is
+registered (§5). Reject `UNKNOWN_SCHEMA`.
 
-4. **Revocation State Query** — Step 10 / Phase 10 requires checking "no applicable revocation". The revocation state machine (PROTOCOL.md §48.4, §20) defines states but the verification-time query "does revocation X invalidate object Y at sequence Z?" needs a precise specification. (open blocker)
+**Step 4 — Schema validation.** Validate schema-specific fields.
+Reject `MALFORMED_SCHEMA`.
 
-5. **Relationship State Derivation** — The semantic check for authorization objects requires the verifier-derived `RECOGNIZED` relationship state (PROTOCOL.md §12.4, §47.3). The exact algorithm for deriving this state from accepted `RelationshipAssertion` and `RelationshipTermination` objects is specified in PROTOCOL.md but the verification procedure's dependency on it should be acknowledged. (open blocker)
+**Step 5 — Sequence validation.** Verify `sequence ≥ 1`. Verify
+`previous_hash` presence matches `sequence`. Reject `INVALID_SEQUENCE`
+or `INVALID_PREVIOUS_HASH`.
 
-6. **Clock and Time Source** — `MAX_CLOCK_SKEW = 5 minutes` is defined in PROTOCOL.md §40.4. The verification procedure assumes access to a wall clock with this skew tolerance and a monotonic clock for `acceptance_time`. The interface is not specified in OBJECTS.md. (open blocker)
+**Step 6 — Chain validation.**
 
-7. **Conformance Scenarios (PROTOCOL.md §61)** — The 17 conformance scenarios will test the verification procedure end-to-end. Any gaps in the procedure will surface there. (future work)
+Compute `object_commitment` per §3.5. If `sequence = 1`, the expected
+`previous_chain_hash` is `initial_chain_hash` per §3.6. If
+`sequence > 1`, retrieve the accepted object at `N−1` in the same
+sequence space, compute its `object_commitment`, and verify the
+candidate's `previous_hash` equals it. Compute the expected
+`chain_hash` per §3.8. Verify the candidate's `chain_hash` matches.
+Reject `CHAIN_MISMATCH` on any failure.
 
-8. **Test Vectors (§11)** — The test vector format (§11.1) references rejection classes and verification steps. The classes in §10.1 must align with the `expected_rejection` values in negative test vectors. (future work)
+**Step 7 — Signature input construction.** Compute `signature_input`
+per §3.12.
 
-9. **Wire Protocol / Transport** — Object delivery, fetching missing objects during gaps (`SYNCING` state), and rendezvous interaction are outside OBJECTS.md scope but affect when/which objects are presented to verification. (future work; see design/KNOWN-LIMITATIONS.md §Open Design Decisions)
+**Step 8 — Signature verification.** Verify the Ed25519 signature
+over `signature_input` against the public key authorized for the object
+type and stream (§6). For dual-signature objects, verify both
+signatures. Reject `INVALID_SIGNATURE`.
+
+**Step 9 — Authority validation.** Verify that the signing key's role
+is authorized for the object type. Verify the key is currently
+authorized: not revoked at the object's sequence position, and covered
+by the object's delegation chain. Reject `UNAUTHORIZED_SIGNER`.
+
+**Step 10 — Semantic validation.** Apply the object's semantic rules.
+
+### §8.1 Atomicity
+
+A verifier MUST NOT advance or mutate accepted stream state during
+steps 1–9. Only after all ten steps pass is the object committed to
+local state, as a single atomic operation. If any step fails, the
+verifier retains its previous accepted state.
+
+### §8.2 Rejection classes
+
+| Class | Trigger |
+|---|---|
+| `MALFORMED_ENCODING` | Bytes are not valid canonical CBOR |
+| `MALFORMED_ENVELOPE` | Envelope field missing, mistyped, or unknown field present |
+| `UNKNOWN_SCHEMA` | `domain_separator` not in the registry |
+| `MALFORMED_SCHEMA` | A schema-specific field fails validation |
+| `INVALID_SEQUENCE` | `sequence` is 0 or out of range |
+| `INVALID_PREVIOUS_HASH` | Presence of `previous_hash` does not match `sequence` |
+| `CHAIN_MISMATCH` | `previous_hash` or `chain_hash` does not match stream state |
+| `INVALID_SIGNATURE` | Signature does not verify |
+| `UNAUTHORIZED_SIGNER` | Signing key is not authorized for this object type and stream |
+| `REVOKED` | Signing key or target object is revoked |
+| `EXPIRED` | Validity interval has elapsed |
+| `FORK_DETECTED` | Stream is in `FORKED` state |
+
+Individual schemas may define additional classes for schema-specific
+failures.
+
+---
+
+## §9. Stream rules
+
+### §9.1 Sequence spaces
+
+A stream is identified by its `stream_id` (§3.6). Every object in a
+stream shares one sequence space and one signing authority.
+
+### §9.2 Monotonicity
+
+Within a stream, `sequence` values are strictly increasing. Gaps
+indicate missing objects; a verifier MUST treat an object whose
+predecessor is not present as unverifiable.
+
+### §9.3 Fork detection
+
+Two objects in the same stream with the same `sequence` and different
+`chain_hash` constitute a fork. A verifier that observes a fork enters
+`FORK_DETECTED` state for that stream.
+
+### §9.4 Fork resolution
+
+A fork is resolved by a `StreamResolution` object (§7.9, schema
+defined in later sections). Until resolution, a verifier MUST NOT
+advance authorization for that stream.
+
+### §9.5 Cross-stream prohibition
+
+A verifier MUST NOT compare sequence numbers from different streams.
+It MUST NOT merge chain hashes across streams. Each stream's history is
+independent.
+
+---
+
+## §10. Pending sections
+
+The following are not yet specified in this document:
+
+- Full schemas for `RendezvousManifest`, `OperatorManifest`,
+  `KeyRevocation`, `RelationshipTermination`, `IdentityContinuity`,
+  `StreamResolution`, `GrantRevocation`, `LeaseRevocation`,
+  `RelayNodeRecord`, `CreditReceipt`.
+- Test vectors, positive and negative, for every object type.
+- Conformance test suite.
+
+Until these are produced, the schema registry in §5 and §6 is
+authoritative for which objects exist and who signs them.
