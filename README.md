@@ -75,6 +75,9 @@ design's reason to exist.
     commercial/     Non-normative commercial model
       MODEL.md        Free tier, paid tiers, credits, funding
 
+    docs/           Project tracking
+      FOLLOW-UPS.md   Deferred work from the revision 2.2 cleanup
+
     REVISIONS.md    Changelog of document revisions
 
 ---
