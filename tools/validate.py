@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_2_1 = "9898163"   # revision 2.1: the base of the revision 2.2 cleanup
 REV_2_2 = "8527311"    # published revision 2.2 / protocol v0.6.3
 REV_2_3 = "3d9cd36"    # published revision 2.3 (last revision before this tool)
+REV_2_4 = "ccb0b1b"    # published revision 2.4 (this tool and its CI workflow)
 
 # Files that may differ from BASE_2_1. Anything else is a scope violation.
 ALLOWED_CHANGES = {
@@ -35,7 +36,29 @@ ALLOWED_CHANGES = {
     "spec/OBJECTS.md", "spec/PARAMETERS.md", "spec/PITCHES.md", "spec/PROTOCOL.md", "spec/SECURITY.md",
     "spec/VERSIONING.md", "docs/FOLLOW-UPS.md",
     "tools/validate.py", "tools/README.md", ".github/workflows/ci.yml",
+    # revision 2.5: historical audit archive and its self-test
+    "docs/cleanup/MERGE-PLAN.md", "docs/cleanup/SECURITY-REVIEW.md",
+    "docs/cleanup/EXECUTION-RECORD.md", "docs/cleanup/README.md", "tools/selftest.py",
 }
+
+# Historical audit archive. Files here keep retired version numbers, stale references and
+# historical document names on purpose, so the checks that compare a document with the
+# current specification skip them (V1, V3, V6, V16, V17, V18). The scope, content-pin,
+# secret, local-path and file-size checks (V11, V21, V22, V23) still apply to them.
+HISTORICAL_DIRS = ("docs/cleanup/",)
+
+
+def historical(path):
+    return path.startswith(HISTORICAL_DIRS)
+
+# SHA-256 of archived files whose content must not change. A change to one of them is
+# deliberate and needs this table updated in the same commit.
+HISTORICAL_PINS = {
+    "docs/cleanup/MERGE-PLAN.md": "5a4dacb3a7071158caa60b239fe5416a2719bd93d4001f66a68e23ca17b684fe",
+    "docs/cleanup/SECURITY-REVIEW.md": "3551e14db6c1eb9b2b96c9473105e9f19bb4da59670ca44fea5e994d7040f21a",
+    "docs/cleanup/EXECUTION-RECORD.md": "6bdec8419d2f54936a8f5a520ced18eb861eabeb2956cabf5ce7316a2bf80513",
+}
+
 
 # Prose names for documents that do not exist in this repository. Each use must
 # be listed in ALLOWED_PROSE with the follow-up item that tracks it. The list is
@@ -86,7 +109,7 @@ def show(ref, path):
     return git("show", "%s:%s" % (ref, path))
 
 
-for c in (BASE_2_1, REV_2_2, REV_2_3):
+for c in (BASE_2_1, REV_2_2, REV_2_3, REV_2_4):
     if not have(c):
         print("ERROR: commit %s is not in this clone. Fetch the full history "
               "(git fetch --unshallow, or fetch-depth: 0 in CI) and run again." % c)
@@ -98,6 +121,7 @@ text = {f: (ROOT / f).read_text(encoding="utf-8") for f in files}
 lines = {f: text[f].split("\n") for f in files}
 fails = []
 results = []
+current_files = [f for f in files if not historical(f)]
 
 
 def check(name, bad):
@@ -143,7 +167,7 @@ named = re.compile(r"(?:`?\[?(PROTOCOL|OBJECTS|CONFORMANCE|DEPLOYMENT|RELAYS|REN
 
 # V1 ----------------------------------------------------------------------------------
 bad = []
-for f in files:
+for f in current_files:
     for i, l in enumerate(lines[f], 1):
         for m in named.finditer(l):
             d = m.group(1) or "Protocol"
@@ -184,7 +208,7 @@ check("V2  markdown links and file references resolve", bad)
 # V3 ----------------------------------------------------------------------------------
 forb = ["stated threat model", "from a single branch", "See §33", "§8.5.3", "[RECORD", "[GUIDE"]
 bad = []
-for f in files:
+for f in current_files:
     if f == "REVISIONS.md":
         continue
     for phrase in forb:
@@ -240,7 +264,7 @@ if not latest or not pv:
 else:
     hdr_re = re.compile(r"^\*\*(Document revision|Revision):\*\* (\S+)$", re.M)
     pv_re = re.compile(r"^\*\*Protocol version:\*\* (v\d+\.\d+\.\d+)", re.M)
-    for f in files:
+    for f in current_files:
         if f == "REVISIONS.md":
             continue
         for m in hdr_re.finditer(text[f]):
@@ -264,8 +288,8 @@ check("V6  version strings consistent (revision %s, protocol %s, taken from REVI
 
 # V7 ----------------------------------------------------------------------------------
 bad = []
-if entries[:4] != [latest, "2.3", "2.2", "2.1"] and entries[:3] != ["2.3", "2.2", "2.1"]:
-    bad.append("entries are not ordered newest first with 2.3, 2.2, 2.1 contiguous: %s" % entries[:5])
+if entries[:4] != ["2.4", "2.3", "2.2", "2.1"] and entries[1:5] != ["2.4", "2.3", "2.2", "2.1"]:
+    bad.append("entries are not ordered newest first with 2.4, 2.3, 2.2, 2.1 contiguous: %s" % entries[:6])
 if "historical" not in rev.split("## Revision 2.1")[0].split("## Revision 2.2")[1]:
     bad.append("the 2.2 entry does not mark the 2.1 stability list historical")
 actual = []
@@ -296,10 +320,10 @@ if len(actual) != 5:
 for f in files:
     if f != "spec/PROTOCOL.md" and "<!-- stability:" in text[f]:
         bad.append("%s unexpectedly carries a stability marker" % f)
-old_rev = show(REV_2_3, "REVISIONS.md")
-_head, _tail = old_rev.split("## Revision 2.3\n", 1)
-if not (rev.startswith(_head) and rev.endswith("## Revision 2.3\n" + _tail)):
-    bad.append("entries for revision 2.3 and earlier, or the introduction, were altered (append-only rule)")
+old_rev = show(REV_2_4, "REVISIONS.md")
+_head, _tail = old_rev.split("## Revision 2.4\n", 1)
+if not (rev.startswith(_head) and rev.endswith("## Revision 2.4\n" + _tail)):
+    bad.append("entries for revision 2.4 and earlier, or the introduction, were altered (append-only rule)")
 check("V7  REVISIONS: newest first, history byte-preserved, markers match files, 2.1 list marked historical", bad)
 
 # V8 ----------------------------------------------------------------------------------
@@ -581,6 +605,11 @@ else:
                      "`.github/workflows/ci.yml`", "`spec/SECURITY.md`", "`docs/FOLLOW-UPS.md`"):
             if want not in fe:
                 bad.append("2.4 entry missing: " + want)
+    if latest == "2.5":
+        for want in ("(unchanged)", "**Normative changes.** None.", "`docs/cleanup/`", "`tools/validate.py`",
+                     "`tools/selftest.py`", "`README.md`", "`docs/FOLLOW-UPS.md`", "historical"):
+            if want not in fe:
+                bad.append("2.5 entry missing: " + want)
 ch = [c.split("\t") for c in git("diff", "--name-status", REV_2_3, "HEAD").split("\n") if c]
 if latest == "2.4":
     added = sorted(p for s_, p in ch if s_ == "A")
@@ -607,12 +636,54 @@ if latest == "2.4":
         bad.append("a protocol-version line changed; revision 2.4 states it is unchanged")
     if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
         bad.append("2.4 stability lists differ from the five markers")
+if latest == "2.5":
+    ch5 = [c.split("\t") for c in git("diff", "--name-status", REV_2_4, "HEAD").split("\n") if c]
+    added5 = sorted(p for s_, p in ch5 if s_ == "A")
+    want_added = sorted(["docs/cleanup/EXECUTION-RECORD.md", "docs/cleanup/MERGE-PLAN.md", "docs/cleanup/README.md",
+                         "docs/cleanup/SECURITY-REVIEW.md", "tools/selftest.py"])
+    if added5 != want_added:
+        bad.append("files added since 2.4 are %s; the 2.5 entry describes %s" % (added5, want_added))
+    if [p for s_, p in ch5 if s_ not in ("A", "M")]:
+        bad.append("files were deleted or renamed since 2.4")
+    revre5 = re.compile(r"^(\*\*(Document revision|Revision):\*\* \d\.\d|  \d\.\d\)\. It advances whenever the document changes\.|"
+                        r"`2\.0`, `2\.1`, `2\.2`, and so on\. The current document is revision \d\.\d\.|revision is \d\.\d\.)$")
+
+    def changed_lines(path):
+        d_ = git("diff", "-U0", REV_2_4, "HEAD", "--", path).split("\n")
+        return [l for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
+
+    tooling5 = {"REVISIONS.md", "tools/validate.py", "tools/README.md"}
+    for s_, p in ch5:
+        if s_ != "M" or p in tooling5 or p in ("README.md", "docs/FOLLOW-UPS.md"):
+            continue
+        extra5 = [l for l in changed_lines(p) if not revre5.match(l[1:])]
+        if extra5:
+            bad.append("%s changed beyond revision strings: %r" % (p, extra5[0][:60]))
+    readme_new = {"", "    docs/cleanup/   Audit record for the revision 2.2 to 2.4 cleanup",
+                  "      README.md           Guide to the audit record",
+                  "      MERGE-PLAN.md       Historical merge plan for revision 2.2",
+                  "      SECURITY-REVIEW.md  Traceability review of SECURITY.md",
+                  "      EXECUTION-RECORD.md Summary of what was applied and pushed"}
+    fu_new = {"", "**Audit record.** The cleanup review, merge plan, and execution summary",
+              "are preserved under `docs/cleanup/`. The merge plan is historical and may",
+              "refer to scratchpad paths and states that no longer exist. This register",
+              "remains the list of open items."}
+    for path_, allowed_ in (("README.md", readme_new), ("docs/FOLLOW-UPS.md", fu_new)):
+        for l in changed_lines(path_):
+            if revre5.match(l[1:]):
+                continue
+            if l[0] == "-" or l[1:] not in allowed_:
+                bad.append("%s: unexpected change %r" % (path_, l[:70]))
+    if re.search(r"^-\*\*Protocol version:\*\*", git("diff", "-U0", REV_2_4, "HEAD"), re.M):
+        bad.append("a protocol-version line changed; revision 2.5 states it is unchanged")
+    if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
+        bad.append("2.5 stability lists differ from the five markers")
 check("V16 newest revision entry is complete and matches the actual changes; protocol version unchanged", bad)
 
 # V17 ---------------------------------------------------------------------------------
 bad = []
 seen = set()
-for f in files:
+for f in current_files:
     if f in PROSE_EXEMPT_FILES:
         continue
     flat_f = " ".join(text[f].split())
@@ -640,7 +711,7 @@ for f in files:
             heading_titles.add(norm(m.group(1)))
 cue = re.compile(r"\b(?:under|section|sections|heading|titled|called|named|see|in)\s+(?:the\s+)?[\"“]([A-Z][^\"”]{2,60})[\"”]")
 seen_q = set()
-for f in files:
+for f in current_files:
     if f in PROSE_EXEMPT_FILES:
         continue
     for para in re.split(r"\n\s*\n", text[f]):
@@ -733,6 +804,71 @@ rd = ROOT / "tools" / "README.md"
 if not rd.is_file() or "python3 tools/validate.py" not in rd.read_text(encoding="utf-8"):
     bad.append("tools/README.md must show: python3 tools/validate.py")
 check("V20 CI workflow and tools/README.md are present and valid", bad)
+
+# V21 ---------------------------------------------------------------------------------
+# The historical archive: exactly its four files, content pinned, wired into README and FOLLOW-UPS.
+import hashlib
+bad = []
+need = ["docs/cleanup/README.md", "docs/cleanup/MERGE-PLAN.md", "docs/cleanup/SECURITY-REVIEW.md",
+        "docs/cleanup/EXECUTION-RECORD.md"]
+under = sorted(f for f in tracked if historical(f))
+if under != sorted(need):
+    bad.append("files under docs/cleanup/ are %s; expected exactly %s" % (under, sorted(need)))
+for f, want in HISTORICAL_PINS.items():
+    if f in tracked and hashlib.sha256((ROOT / f).read_bytes()).hexdigest() != want:
+        bad.append("%s differs from its pinned content; archived files are not edited" % f)
+if "docs/cleanup/README.md" in text:
+    flat_c = " ".join(text["docs/cleanup/README.md"].split())
+    for want in ("is a historical audit archive", "must not be treated as current normative documentation",
+                 "source of truth remains the files outside `docs/cleanup/`", "`tools/validate.py`",
+                 "`docs/FOLLOW-UPS.md`"):
+        if want not in flat_c:
+            bad.append("docs/cleanup/README.md must state: " + want)
+if "docs/cleanup/" not in text["README.md"].split("## Repository layout")[1].split("\n---")[0]:
+    bad.append("README.md layout list does not include docs/cleanup/")
+if "**Audit record.**" not in text["docs/FOLLOW-UPS.md"] or "`docs/cleanup/`" not in text["docs/FOLLOW-UPS.md"]:
+    bad.append("docs/FOLLOW-UPS.md does not carry the audit record note")
+check("V21 docs/cleanup/ holds exactly its four archived files, content pinned, and is wired into README and FOLLOW-UPS", bad)
+
+# V22 ---------------------------------------------------------------------------------
+# Credentials, local paths and private URLs. Applies to every tracked file, including
+# docs/cleanup/. Only this script is skipped, because it contains the patterns.
+SECRET_PATTERNS = [
+    (r"-----BEGIN [A-Z ]*PRIVATE KEY-----", "private key block"),
+    (r"\bAKIA[0-9A-Z]{16}\b", "AWS access key id"),
+    (r"\bgh[pousr]_[A-Za-z0-9]{30,}\b", "GitHub token"),
+    (r"\bgithub_pat_[A-Za-z0-9_]{20,}\b", "GitHub token"),
+    (r"\bxox[abprs]-[A-Za-z0-9-]{10,}", "Slack token"),
+    (r"\bsk-[A-Za-z0-9_-]{20,}\b", "API key"),
+    (r"(?i)\b(?:api[_-]?key|secret|token|passwd|password)\b\s*[:=]\s*['\"]?[A-Za-z0-9+/_\-]{16,}", "credential assignment"),
+    (r"://[^/\s:@]+:[^/\s@]+@", "credentials in a URL"),
+    (r"(?i)\bbearer\s+[A-Za-z0-9._\-]{20,}", "bearer token"),
+    (r"(?<![\w.])/(?:home|Users|root)/[A-Za-z0-9._-]+", "local home path"),
+    (r"/tmp/claude", "local scratch path"),
+    (r"[A-Za-z]:\\Users\\", "local Windows path"),
+    (r"/var/folders/", "local temp path"),
+    (r"https?://claude\.ai/(?:code|chat|artifact|project)/", "private claude.ai URL"),
+    (r"https?://(?:localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)", "private network URL"),
+]
+bad = []
+for f in sorted(tracked):
+    if f == "tools/validate.py":
+        continue
+    try:
+        body_ = (ROOT / f).read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        bad.append("%s is not readable as UTF-8 text" % f)
+        continue
+    for pat, why in SECRET_PATTERNS:
+        for m in re.finditer(pat, body_):
+            bad.append("%s:%d %s: %r" % (f, body_.count("\n", 0, m.start()) + 1, why, m.group(0)[:20] + "..."))
+check("V22 no credentials, local paths or private URLs in any tracked file (docs/cleanup/ included)", bad)
+
+# V23 ---------------------------------------------------------------------------------
+LIMIT = 1024 * 1024
+bad = ["%s is %d bytes; the limit is %d" % (f, (ROOT / f).stat().st_size, LIMIT)
+       for f in sorted(tracked) if (ROOT / f).is_file() and (ROOT / f).stat().st_size > LIMIT]
+check("V23 no tracked file exceeds 1 MiB (docs/cleanup/ included)", bad)
 
 # ---- summary -----------------------------------------------------------------------
 print()

@@ -1,6 +1,6 @@
 # Grid Network — Glossary
 
-**Revision:** 2.4
+**Revision:** 2.5
 **Protocol version:** v0.6.3
 
 Terms are listed alphabetically. Each definition is one sentence or a

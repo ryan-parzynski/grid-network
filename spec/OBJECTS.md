@@ -1,6 +1,6 @@
 # Grid Network — Object Encoding Specification
 
-**Revision:** 2.4
+**Revision:** 2.5
 **Protocol version:** v0.6.3
 
 This document defines the byte-level representation and cryptographic

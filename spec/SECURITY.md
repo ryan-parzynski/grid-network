@@ -1,6 +1,6 @@
 # Grid Network — Security Model
 
-**Revision:** 2.4
+**Revision:** 2.5
 **Protocol version:** v0.6.3
 
 **Repository path:** `spec/SECURITY.md`

@@ -1,6 +1,6 @@
 # Grid Network — Contributing
 
-**Revision:** 2.4
+**Revision:** 2.5
 
 **Repository path:** `CONTRIBUTING.md`
 

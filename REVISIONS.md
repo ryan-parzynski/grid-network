@@ -9,6 +9,60 @@ entry.
 
 ---
 
+## Revision 2.5
+
+**Protocol version:** v0.6.3 (unchanged)
+
+**Applied changes.**
+
+*Documentation.*
+- `docs/cleanup/` added as a historical audit archive for the revision
+  2.2 to 2.4 cleanup. It holds the merge plan for revision 2.2
+  (`docs/cleanup/MERGE-PLAN.md`, preserved verbatim), the independent
+  traceability review of `spec/SECURITY.md`
+  (`docs/cleanup/SECURITY-REVIEW.md`), a summary of what was applied and
+  pushed (`docs/cleanup/EXECUTION-RECORD.md`), and a guide
+  (`docs/cleanup/README.md`). The files may contain retired version
+  numbers, stale cross-references, and historical document names. They
+  are not current documentation.
+- The repository layout list in `README.md` includes `docs/cleanup/`.
+- `docs/FOLLOW-UPS.md` carries an audit record note that points to
+  `docs/cleanup/`.
+
+*Tooling.*
+- `tools/validate.py` treats `docs/cleanup/` as a historical archive. It
+  skips the checks that compare a document with the current
+  specification for those files. It still applies the scope, content-pin,
+  credential, local-path, and file-size checks to them. The credential,
+  local-path, private-URL, and file-size checks are new and apply to every
+  tracked file.
+- `tools/selftest.py` added. It applies deliberate defects in temporary
+  clones and checks that `tools/validate.py` fails as it should, and that
+  historical references in `docs/cleanup/` do not fail.
+- `tools/README.md` describes the archive exemption and the self-test.
+
+*Structure.*
+- Revision strings advanced across all documents. The protocol version
+  is unchanged.
+
+**Normative changes.** None. No protocol rule, object, schema,
+parameter, or stability marker changed.
+
+**Open questions.** Same as revision 2.4. The open items are itemized in
+`docs/FOLLOW-UPS.md`.
+
+**Stability markers after this revision.** Unchanged from revision 2.2.
+
+Stable:
+- Protocol §23, §25, §39
+
+Under review:
+- Protocol §21, §27
+
+`OBJECTS.md` carries no stability markers.
+
+---
+
 ## Revision 2.4
 
 **Protocol version:** v0.6.3 (unchanged)

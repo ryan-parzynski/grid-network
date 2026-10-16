@@ -78,6 +78,12 @@ design's reason to exist.
     docs/           Project tracking
       FOLLOW-UPS.md   Deferred work from the revision 2.2 cleanup
 
+    docs/cleanup/   Audit record for the revision 2.2 to 2.4 cleanup
+      README.md           Guide to the audit record
+      MERGE-PLAN.md       Historical merge plan for revision 2.2
+      SECURITY-REVIEW.md  Traceability review of SECURITY.md
+      EXECUTION-RECORD.md Summary of what was applied and pushed
+
     REVISIONS.md    Changelog of document revisions
 
 ---
@@ -106,7 +112,7 @@ rejected, read `design/REJECTED.md`.
 
 ## Status
 
-**Document revision:** 2.4
+**Document revision:** 2.5
 **Protocol version:** v0.6.3
 
 The specification is a living document. Sections marked `stable` are

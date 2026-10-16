@@ -1,6 +1,6 @@
 # Grid Network — Deferred Follow-ups
 
-**Revision:** 2.4
+**Revision:** 2.5
 **Protocol version:** v0.6.3
 
 **Repository path:** `docs/FOLLOW-UPS.md`
@@ -46,6 +46,11 @@ clone. Each such reference is marked as historical or as an archive
 source where it appears. Archive section numbers follow the first
 uploaded Master Archive unless an appendix of the consolidated archive
 is named. Historical material is evidence, not authority.
+
+**Audit record.** The cleanup review, merge plan, and execution summary
+are preserved under `docs/cleanup/`. The merge plan is historical and may
+refer to scratchpad paths and states that no longer exist. This register
+remains the list of open items.
 
 ---
 

@@ -1,6 +1,6 @@
 # Grid Network — Design Rationale
 
-**Revision:** 2.4
+**Revision:** 2.5
 **Protocol version:** v0.6.3
 
 This document is non-normative. It explains why the protocol is designed
