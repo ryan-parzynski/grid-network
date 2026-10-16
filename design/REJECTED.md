@@ -1,7 +1,7 @@
 # Grid Network — Rejected Approaches
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 This document records approaches that were considered and rejected, with
 the reason for rejection. It is non-normative. Its purpose is to prevent

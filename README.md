@@ -103,8 +103,8 @@ rejected, read `design/REJECTED.md`.
 
 ## Status
 
-**Document revision:** 2.1
-**Protocol version:** v0.6.2
+**Document revision:** 2.2
+**Protocol version:** v0.6.3
 
 The specification is a living document. Sections marked `stable` are
 conformance-grade and will not change without a protocol-version bump.

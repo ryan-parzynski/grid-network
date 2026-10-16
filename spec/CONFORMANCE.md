@@ -1,7 +1,7 @@
 # Grid Network — Conformance
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 **Repository path:** `spec/CONFORMANCE.md`
 
@@ -15,7 +15,7 @@ descriptive with respect to vectors that do not yet exist.
 
 ## 1. What conformance means
 
-An implementation conforms to protocol version v0.6.2 if it satisfies
+An implementation conforms to protocol version v0.6.3 if it satisfies
 the requirements of `PROTOCOL.md §43` and passes the test vectors and
 conformance scenarios defined in this document.
 
@@ -357,7 +357,7 @@ constructions in `OBJECTS.md`.
 
 ## 6. Test vector repository layout
 
-    spec/test-vectors/v0.6.2/
+    spec/test-vectors/v0.6.3/
     ├── README.md
     ├── positive/
     │   ├── identity-document/
@@ -395,5 +395,5 @@ An implementation that passes all levels and all scenarios:
 
 An implementation that passes some levels is conformant at that level
 for the object types it supports. It may claim "conforms to Grid
-Network v0.6.2 Level N" but not "conforms to Grid Network v0.6.2" in
+Network v0.6.3 Level N" but not "conforms to Grid Network v0.6.3" in
 full.

@@ -1,7 +1,7 @@
 # Grid Network — Glossary
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 Terms are listed alphabetically. Each definition is one sentence or a
 short paragraph. Where a term has a normative definition elsewhere, the

@@ -1,7 +1,7 @@
 # Grid Network — Lineage
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 This document records what the protocol learned from prior systems. It
 is non-normative. Its purpose is to credit prior work, to explain which

@@ -1,7 +1,7 @@
 # Grid Network — Roadmap
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 **Repository path:** `ROADMAP.md`
 
@@ -15,7 +15,7 @@ Protocol Specification conflict, the Protocol Specification governs.
 
 The specification is in a documentation and design phase. No reference
 implementation is available. No test vectors have been published. The
-protocol version is v0.6.2. Four open questions remain (see §5).
+protocol version is v0.6.3. Four open questions remain (see §5).
 
 ---
 
@@ -122,7 +122,7 @@ commitment.
 
 | Protocol version | Feature set |
 |---|---|
-| v0.6.2 | Current. Identity, authorization, reachability, rendezvous, relays, pairing. |
+| v0.6.3 | Current. Identity, authorization, reachability, rendezvous, relays, pairing. |
 | v0.7.0 | Object schemas completed, test vectors published, clarifications. |
 | v0.8.0 | Multipath connectivity, metadata minimization. |
 | v0.9.0 | Rendezvous federation, gossip, DHT discovery. |

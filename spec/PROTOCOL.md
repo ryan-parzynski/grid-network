@@ -1,7 +1,7 @@
 # Grid Network Protocol Specification
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 **Status:** Sections marked `stable` are normative and will not change
 without a protocol-version bump. Sections marked `under-review` carry a
 known defect or open question and must not be built against yet.
@@ -38,9 +38,9 @@ revision.
 
 - MUST, MUST NOT, SHOULD, SHOULD NOT, MAY are used per RFC 2119.
 - **Document revision** is the version of this specification (e.g.,
-  2.1). It advances whenever the document changes.
+  2.2). It advances whenever the document changes.
 - **Protocol version** is the feature set this specification defines
-  (e.g., v0.6.2). Implementations conform to a protocol version, not a
+  (e.g., v0.6.3). Implementations conform to a protocol version, not a
   document revision.
 - **Feature status.** Every feature that is not in the current protocol
   version is labeled with a feature name and one status word:
@@ -1594,7 +1594,7 @@ Conformance is defined by test vectors and by the requirements of §43.
 6. **Security** — signature forgery resistance, revocation bypass
    resistance, identity continuity validation.
 
-An implementation conforms to protocol version v0.6.2 if it passes all
+An implementation conforms to protocol version v0.6.3 if it passes all
 levels for the object types and behaviors it claims to support.
 
 Conformance demonstrates agreement with this specification's defined
@@ -1610,10 +1610,10 @@ conformance meaning in this specification.
 ## 45. Versioning
 
 **Document revision.** Advances whenever the specification changes.
-`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.1.
+`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.2.
 
 **Protocol version.** `vMAJOR.MINOR.PATCH`. The current protocol
-version is `v0.6.2`.
+version is `v0.6.3`.
 
 Semantics:
 
@@ -1641,7 +1641,7 @@ feature label without a status word is a documentation defect.
 
 ## 46. Deferred features
 
-The following features are not in protocol version v0.6.2. Each is
+The following features are not in protocol version v0.6.3. Each is
 listed with its status word.
 
 | Feature | Status |

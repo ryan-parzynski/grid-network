@@ -1,7 +1,7 @@
 # Grid Network — Decision Log
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 This document records every design decision made for the protocol, with
 its rationale and consequences. It is non-normative. Where a decision

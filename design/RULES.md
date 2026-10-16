@@ -1,7 +1,7 @@
 # Grid Network — Design Rules and Anti-Patterns
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 **Repository path:** `design/RULES.md`
 

@@ -9,6 +9,64 @@ entry.
 
 ---
 
+## Revision 2.2
+
+**Protocol version:** v0.6.3
+
+**Applied changes.**
+
+*Corrections.*
+- The chain hash rationale in `OBJECTS.md §3.8` and `DECISIONS.md` D5
+  corrected. The signature covers `chain_hash`, which binds an object to
+  its history. A chain hash does not reveal a fork to a verifier that
+  has observed only one branch. The per-object cost stated in D5
+  corrected to constant.
+- Dangling cross-references repaired: `PROTOCOL.md §14` (revocation
+  propagation is §31), `PROTOCOL.md §43` (verification is
+  `OBJECTS.md §8`, constructions are `OBJECTS.md §3`), and the example
+  references in the conventions list.
+- `PARAMETERS.md` "Defined in" entries for relay and commercial
+  parameters redirected from a nonexistent document to
+  `commercial/MODEL.md` and `operations/RELAYS.md`.
+  `DEFAULT_REACHABILITY_CREDIT_REWARD` is defined in no document and is
+  marked open.
+- `OBJECTS.md §7.9` and `§9.4` state that the remaining schemas are
+  planned and not yet specified.
+
+*Security documentation.*
+- `SECURITY.md` added: security model, threats addressed and not
+  addressed, blast radius, compromise response, and implementation
+  guidance. It is non-normative and restates rules from `PROTOCOL.md`
+  and `OBJECTS.md`.
+- `PROTOCOL.md §44` and `RATIONALE.md §9` refer to `SECURITY.md`.
+
+*Structure.*
+- Revision and protocol version advanced across all documents.
+
+**Correction to the revision 2.1 stability record.** The stability
+list in revision 2.1 is historical. It named sections that carry no
+marker in the files and `OBJECTS.md §11`, which does not exist. The
+markers present in the files are listed below and are authoritative.
+
+**Open questions.**
+
+- The four open questions recorded in revision 2.1 remain open.
+- Schemas, test vectors, and a conformance suite for the objects listed
+  in `OBJECTS.md §10` are not yet specified.
+- `DEFAULT_REACHABILITY_CREDIT_REWARD` has no defining document.
+
+**Stability markers after this revision.**
+
+Stable:
+- Protocol §23, §25, §39
+
+Under review:
+- Protocol §21, §27
+
+`OBJECTS.md` carries no stability markers.
+
+---
+
 ## Revision 2.1
 
 **Protocol version:** v0.6.2 (unchanged)

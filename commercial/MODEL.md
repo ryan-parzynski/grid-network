@@ -1,7 +1,7 @@
 # Grid Network — Commercial Model
 
-**Revision:** 2.1
-**Protocol version:** v0.6.2
+**Revision:** 2.2
+**Protocol version:** v0.6.3
 
 This document is non-normative. It describes a commercial model that
 funds protocol maintenance and infrastructure operation. Where this
