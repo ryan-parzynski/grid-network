@@ -74,15 +74,15 @@ Policy defaults for relay operation.
 
 | Symbol | Default | Meaning | Defined in |
 |---|---|---|---|
-| `DEFAULT_FREE_TIER_LIMITS` | 1 Mbps concurrent, 10 GB/month | Fair-share caps for free tier | Operator Guide |
-| `DEFAULT_FREE_RATE_LIMIT` | 10 lookups/sec | Rate limit for free tier rendezvous queries | Operator Guide |
-| `DEFAULT_STANDARD_MIN_BPS` | 10 Mbps | Guaranteed minimum relay bandwidth for standard tier | Operator Guide |
-| `DEFAULT_STANDARD_RATE_LIMIT` | 30 lookups/sec | Rate limit for standard tier | Operator Guide |
-| `DEFAULT_PRIORITY_MIN_BPS` | 50 Mbps | Guaranteed minimum relay bandwidth for priority tier | Operator Guide |
-| `DEFAULT_PRIORITY_SLA_LATENCY` | 100 ms | Latency bound for priority tier | Operator Guide |
-| `DEFAULT_DEDICATED_SLA_UPTIME` | 99.99% | Uptime SLA for dedicated tier | Operator Guide |
-| `DEFAULT_PRIORITY_SLA_UPTIME` | 99.5% | Uptime SLA for priority tier | Operator Guide |
-| `DEFAULT_STANDARD_SLA_UPTIME` | 99% | Uptime SLA for standard tier | Operator Guide |
+| `DEFAULT_FREE_TIER_LIMITS` | 1 Mbps concurrent, 10 GB/month | Fair-share caps for free tier | `commercial/MODEL.md` |
+| `DEFAULT_FREE_RATE_LIMIT` | 10 lookups/sec | Rate limit for free tier rendezvous queries | `commercial/MODEL.md` |
+| `DEFAULT_STANDARD_MIN_BPS` | 10 Mbps | Guaranteed minimum relay bandwidth for standard tier | `commercial/MODEL.md` |
+| `DEFAULT_STANDARD_RATE_LIMIT` | 30 lookups/sec | Rate limit for standard tier | `commercial/MODEL.md` |
+| `DEFAULT_PRIORITY_MIN_BPS` | 50 Mbps | Guaranteed minimum relay bandwidth for priority tier | `commercial/MODEL.md` |
+| `DEFAULT_PRIORITY_SLA_LATENCY` | 100 ms | Latency bound for priority tier | `commercial/MODEL.md` |
+| `DEFAULT_DEDICATED_SLA_UPTIME` | 99.99% | Uptime SLA for dedicated tier | `commercial/MODEL.md` |
+| `DEFAULT_PRIORITY_SLA_UPTIME` | 99.5% | Uptime SLA for priority tier | `commercial/MODEL.md` |
+| `DEFAULT_STANDARD_SLA_UPTIME` | 99% | Uptime SLA for standard tier | `commercial/MODEL.md` |
 
 ## Commercial parameters
 
@@ -91,12 +91,12 @@ protocol does not require any particular value.
 
 | Symbol | Default | Meaning | Defined in |
 |---|---|---|---|
-| `CREDIT_TO_GB_RATIO` | 1 credit = 1 GB | Standard exchange rate | Operator Guide |
-| `GEOGRAPHIC_MULTIPLIER_ABUNDANT` | 1 | Credit multiplier in regions with abundant relays | Operator Guide |
-| `GEOGRAPHIC_MULTIPLIER_SCARCE` | 3 | Credit multiplier in scarce regions | Operator Guide |
-| `GEOGRAPHIC_MULTIPLIER_VERY_SCARCE` | 5 | Credit multiplier in very scarce regions | Operator Guide |
-| `DEFAULT_DEVELOPER_FUND_SHARE` | 20% | Fraction of relay revenue contributed to developer funding | Operator Guide |
-| `DEFAULT_REACHABILITY_CREDIT_REWARD` | 1 credit/day | Credit earned per day of reachability published | Operator Guide |
+| `CREDIT_TO_GB_RATIO` | 1 credit = 1 GB | Standard exchange rate | `operations/RELAYS.md` |
+| `GEOGRAPHIC_MULTIPLIER_ABUNDANT` | 1 | Credit multiplier in regions with abundant relays | `operations/RELAYS.md` |
+| `GEOGRAPHIC_MULTIPLIER_SCARCE` | 3 | Credit multiplier in scarce regions | `operations/RELAYS.md` |
+| `GEOGRAPHIC_MULTIPLIER_VERY_SCARCE` | 5 | Credit multiplier in very scarce regions | `operations/RELAYS.md` |
+| `DEFAULT_DEVELOPER_FUND_SHARE` | 20% | Fraction of relay revenue contributed to developer funding | `commercial/MODEL.md` |
+| `DEFAULT_REACHABILITY_CREDIT_REWARD` | 1 credit/day | Credit earned per day of reachability published | TODO: no document defines this parameter |
 
 ## Conformance targets
 

@@ -49,8 +49,8 @@ revision.
   Example devices are named by role (Alice's laptop, Bob's phone) or
   by symbol (Device A, Device B).
 - **Cross-references.** References within this document use `§N.M`.
-  Cross-document references use the document name: `[RECORD §3.2]`,
-  `[ROADMAP §2]`, `[GUIDE §4.1]`.
+  Cross-document references use the document name: `[OBJECTS §3]`,
+  `[ROADMAP §2]`, `[RELAYS §3]`.
 - **Parameters.** Every tunable value in a rule is a symbol defined in
   `PARAMETERS.md`. Literal values do not appear in normative text.
 - **Stability markers.** `stable` and `under-review`, per the status
@@ -637,7 +637,7 @@ polls rendezvous servers, caches what it receives, and applies the
 revocation to local state.
 
 There is no guarantee of immediate propagation. The protocol does not
-define a bound. See §33.
+define a bound. See §31.
 
 **Revocation before target.** A revocation received before its target
 object is cached. When the target arrives, the cached revocation is
@@ -1546,8 +1546,8 @@ registered in `OBJECTS.md`.
 1. Use Ed25519 for signatures and SHA-256 for hashes.
 2. Use deterministic CBOR with canonical encoding.
 3. Reject malformed CBOR before semantic processing.
-4. Implement the verification procedure defined in `OBJECTS.md` §8.5.3
-   and §8.3.
+4. Implement the verification procedure defined in `OBJECTS.md` §8
+   and the constructions defined in `OBJECTS.md` §3.
 5. Support all object types in the current protocol version.
 6. Implement the F1–F6 failure semantics.
 7. Maintain the identity, relationship, and authorization state

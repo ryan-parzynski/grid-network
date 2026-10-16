@@ -14,16 +14,16 @@ conflict, the Protocol Specification governs.
 This document serves three readers.
 
 A **reader evaluating the protocol** wants to know what problem it
-solves and why the design is worth adopting. Sections 2 through 5
+solves and why the design is worth adopting. Sections 2 through 4
 address that.
 
 A **reader deciding whether to build on the protocol** wants to know
 what it replaces, what it costs to integrate, and what the design
-assumes. Sections 6 and 7 address that.
+assumes. Sections 5 and 6 address that.
 
 A **reader looking for a specific answer** — does the protocol handle
-X? what happens if Y? — will find edge cases in Section 8 and a
-question index in Section 9.
+X? what happens if Y? — will find edge cases in Section 7 and a
+question index in Section 7.9.
 
 The Protocol Specification defines what the protocol does. This
 document defines why.

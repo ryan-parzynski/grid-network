@@ -684,8 +684,8 @@ priority.
 `RendezvousManifest`, `OperatorManifest`, `KeyRevocation`,
 `RelationshipTermination`, `IdentityContinuity`, `StreamResolution`,
 `GrantRevocation`, `LeaseRevocation`, `RelayNodeRecord`, `CreditReceipt`
-follow the same envelope structure and are defined in later sections of
-this document when their schemas are finalized.
+follow the same envelope structure. Their schemas are planned and are
+not yet specified in this document (§10).
 
 ---
 
@@ -785,8 +785,8 @@ Two objects in the same stream with the same `sequence` and different
 
 ### §9.4 Fork resolution
 
-A fork is resolved by a `StreamResolution` object (§7.9, schema
-defined in later sections). Until resolution, a verifier MUST NOT
+A fork is resolved by a `StreamResolution` object (§7.9; its schema
+is planned, see §10). Until resolution, a verifier MUST NOT
 advance authorization for that stream.
 
 ### §9.5 Cross-stream prohibition
