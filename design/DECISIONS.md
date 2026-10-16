@@ -83,15 +83,19 @@ this requires a planned handover.
 **Decision.** The `chain_hash` of an object commits to the entire
 stream history, not just to the previous object.
 
-**Rationale.** A linear chain that links only to the previous object
-cannot detect a fork when the verifier has seen only one branch. A
-cumulative chain can detect a fork from a single branch, because the
-forked object's stated `chain_hash` will not match what the verifier
-computes.
+**Rationale.** A chain hash that commits to the entire stream history
+binds each object to the history that precedes it. Because the
+signature covers `chain_hash`, an object cannot be moved onto a
+different history without invalidating its signature. Two verifiers can
+compare a single `chain_hash` value at a given sequence to determine
+whether they hold the same history.
 
-**Consequence.** Each object carries a hash whose computation cost grows
-linearly with stream length. On modern hardware this is negligible. The
-benefit is fork detection without needing to see both branches.
+**Consequence.** Each object carries one additional hash value. The
+per-object computation cost is constant, because it depends only on the
+previous chain hash and the object's commitment. The chain hash does
+not reveal a fork to a verifier that has seen only one branch. Fork
+detection requires observing two conflicting objects at the same
+sequence (`OBJECTS.md` §9.3).
 
 ---
 

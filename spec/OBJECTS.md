@@ -299,8 +299,19 @@ Element 1 is `previous_chain_hash(N)` as a CBOR byte string. Element 2 is
 The first object in every stream has `sequence = 1`. The value 0 is
 reserved for "uninitialized" and MUST NOT appear in any signed object.
 
-The chain hash commits to the entire stream history, not just to the
-previous object. This enables fork detection from a single branch.
+The chain hash commits to the entire stream history presented to the
+verifier, not just to the previous object. Because the signature input
+includes `chain_hash` (§3.12), the signature binds an object to the
+specific history that precedes it. An object cannot be moved onto a
+different history without invalidating its signature.
+
+The chain hash does not by itself reveal a fork. A verifier that has
+observed only one branch holds an internally consistent chain. A fork is
+detected when a verifier observes two objects in the same stream with
+the same `sequence` and different `chain_hash` values (§9.3). Equal
+`chain_hash` values at the same `sequence` establish that two verifiers
+hold identical history through that sequence, so two heads can be
+compared without exchanging the objects.
 
 ### §3.9 Payload ID
 
