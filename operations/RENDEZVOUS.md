@@ -1,6 +1,6 @@
 # Grid Network — Rendezvous Operation Guide
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 **Repository path:** `operations/RENDEZVOUS.md`

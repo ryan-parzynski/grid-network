@@ -1,6 +1,6 @@
 # Grid Network — Roadmap
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 **Repository path:** `ROADMAP.md`
@@ -146,7 +146,7 @@ protocol feature.
 | Rendezvous wire protocol | `spec/OBJECTS.md` | Not started |
 | NAT traversal wire specification | `operations/DEPLOYMENT.md` | Drafted, not normative |
 | Credit settlement protocol | `commercial/MODEL.md` | Not started |
-| Prior-art expansion for libp2p, Noise, QUIC | `design/LINEAGE.md` | Not started |
+| Prior-art expansion for libp2p, Noise, QUIC | `design/LINEAGE.md` | Done in revision 2.6 |
 
 ---
 
@@ -187,8 +187,23 @@ see what the protocol does not solve.
 | A peer that changes its identity cannot be found under its old identity | Identity is bound to a Peer ID | Re-pairing under the new identity |
 | A fork whose signing keys are lost is unrecoverable | StreamResolution requires the pre-fork authority | None. Design limit. |
 | Revocation propagation is not immediate | Revocations are pull-based | Short leases; `DEFAULT_REVOCATION_POLL_INTERVAL` |
-| Metadata is visible to infrastructure operators | Peers are identified by design | Multiple providers; privacy transport is `planned` |
+| Metadata is visible to infrastructure operators | Peers are identified by design | Multiple providers; metadata minimization is `planned` |
 | Post-quantum security is not yet provided | Ed25519 is the current signature algorithm | Post-quantum suite is `planned` |
+
+### 6.1 Limitations stated by the specification
+
+The statements below restate limitations that the specification itself
+records. They are known limitations. They are not ranked, they are not
+defects, and a statement names a mitigation only where a cited section
+defines one.
+
+| Limitation | Statement | Sections | Related follow-up |
+|---|---|---|---|
+| No in-band Identity Root recovery | Recovery from loss or compromise of the Identity Root is external and out-of-band, and the protocol defines no recovery authority. Threshold recovery is `planned` and is not in protocol v0.6.3. | `PROTOCOL.md §18`, `PROTOCOL.md §46`, `PROTOCOL.md §47`, `DEPLOYMENT.md §7.1`, `DEPLOYMENT.md §8.4`, `design/REJECTED.md` R5, `design/EXTENSIONS.md` | None recorded. Threshold recovery is listed in `ROADMAP.md §7`. |
+| Revocation propagation has no normative bound | Revocations are pulled by verifiers from rendezvous servers and are not broadcast. The protocol defines no normative propagation bound. The time during which a verifier can act on stale revocation knowledge depends on how often it polls and on lease duration. `PROTOCOL.md §31` notes that a deployment may choose short leases. | `PROTOCOL.md §10`, `PROTOCOL.md §14`, `PROTOCOL.md §31`, `ROADMAP.md §5` (Q4) | `docs/FOLLOW-UPS.md` items 3b and 5 |
+| Specification incomplete | Ten object schemas are stubs. No test vectors or conformance vectors are published, and the conformance scenarios are drafted but not finalized. Five sections of `PROTOCOL.md` carry stability markers, and the list of marked sections in `VERSIONING.md` differs from them. | `OBJECTS.md §7.9`, `OBJECTS.md §10`, `CONFORMANCE.md §3`, `CONFORMANCE.md §5`, `PROTOCOL.md §45`, `ROADMAP.md §1`, `ROADMAP.md §2`, `ROADMAP.md §4` | `docs/FOLLOW-UPS.md` items 4 and 12 |
+| Metadata visible to infrastructure operators | Under the current rendezvous and relay model, peers are identified and metadata is visible to infrastructure operators. A relay can observe packet size, timing, and source and destination identifiers. Metadata minimization is `planned` and anonymity transport is `unscheduled`. The specification lists anonymity as outside its scope. | `PROTOCOL.md §23`, `PROTOCOL.md §25`, `PROTOCOL.md §46`, `PROTOCOL.md §47`, `design/EXTENSIONS.md` | None recorded. Metadata minimization is listed in `ROADMAP.md §7`. |
+| Verifier state loss | State corruption requires re-establishing trust from scratch. When an observation record is lost, elapsed time is treated as the maximum and the verifier fails closed. The specification names atomic writes and checksums as a way to reduce the risk of corruption. | `PROTOCOL.md §10`, `PROTOCOL.md §34`, `PROTOCOL.md §43`, `DEPLOYMENT.md §7.6` | None recorded. |
 
 ---
 

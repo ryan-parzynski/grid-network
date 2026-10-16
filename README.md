@@ -71,6 +71,7 @@ design's reason to exist.
     operations/     Non-normative operational guidance
       RELAYS.md       Relay operation and economics
       DEPLOYMENT.md   Deployment topologies and procedures
+      IMPLEMENTATION-NOTES.md Non-normative implementation notes
 
     commercial/     Non-normative commercial model
       MODEL.md        Free tier, paid tiers, credits, funding
@@ -112,7 +113,7 @@ rejected, read `design/REJECTED.md`.
 
 ## Status
 
-**Document revision:** 2.5
+**Document revision:** 2.6
 **Protocol version:** v0.6.3
 
 The specification is a living document. Sections marked `stable` are

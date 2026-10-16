@@ -36,6 +36,16 @@ check passes and 1 when any check fails. Each check prints one `PASS` or
   or uncommitted.
 - No tracked file contains a credential, a local path, or a private URL,
   and none exceeds 1 MiB.
+- `operations/IMPLEMENTATION-NOTES.md` stays non-normative, uses no
+  normative keyword, names no programming language, contains no figures,
+  and cites a section for every statement.
+- The prior-art entries in `design/LINEAGE.md` each carry the required
+  labels and a Grid section, and make no novelty, superiority, or
+  equivalence claim. `ROADMAP.md` section 6.1 states the five known
+  limitations with citations and no ranking.
+- Threshold recovery carries the status word `planned` everywhere it is
+  labeled.
+- No dollar or throughput figure has been added since revision 2.5.
 
 ## The historical archive
 
@@ -59,11 +69,14 @@ applies one deliberate defect per case in the clone, and checks that
 references in `docs/cleanup/` do not fail. It cannot prove that an
 arbitrary new claim in `spec/SECURITY.md` is supported; it covers the
 mechanical defects the validator can see, such as a restored attempt-limit
-clause or a citation to a section that does not exist.
+clause, a citation to a section that does not exist, a normative keyword
+or uncited statement in `operations/IMPLEMENTATION-NOTES.md`, a stale
+revision string, an unexpected new file, or a dollar figure.
 
 ## Maintaining it
 
-The script compares against commits named at the top of `validate.py`.
+The script compares against commits named at the top of `validate.py`
+(`REV_2_5` is the commit that published revision 2.5).
 The revision-specific checks in V16 apply to the newest revision entry.
 When a new revision is published, update the commit anchors and any
 release-specific check in the same commit, and list new files in

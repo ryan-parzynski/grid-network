@@ -1,6 +1,6 @@
 # Grid Network — Versioning
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 This document defines how the protocol and its specification evolve.
@@ -11,7 +11,7 @@ This document defines how the protocol and its specification evolve.
 
 **Document revision.** The version of the specification itself. Format:
 `MAJOR.MINOR`. Advances whenever the document changes. The current
-revision is 2.5.
+revision is 2.6.
 
 **Protocol version.** The feature set the specification defines.
 Format: `vMAJOR.MINOR.PATCH`. The current protocol version is v0.6.3.

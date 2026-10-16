@@ -1,6 +1,6 @@
 # Grid Network — Deferred Follow-ups
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 **Repository path:** `docs/FOLLOW-UPS.md`
@@ -76,7 +76,9 @@ remains the list of open items.
 | 7b. Cross-reference style in conventions | Low | `spec/PROTOCOL.md` | Decision on the canonical style | Choose one style and apply it to the conventions list | `PROTOCOL.md` conventions list; style used in `OBJECTS.md §2` |
 | 8. README repository layout | Low | `README.md` | None | Add the missing documents using the existing style | `README.md`; tracked file list |
 | 9. v0.6.3 normative-equivalence statement | Medium | `REVISIONS.md`, `spec/VERSIONING.md` | Decision on whether revision 2.2 changed any normative rule, and where to say so | Compare the normative text of revision 2.1 and revision 2.2; if no rule changed, say so in a later entry | `REVISIONS.md` Revision 2.2; `VERSIONING.md` |
-| 10. Specification inconsistencies found during the SECURITY.md review | Medium | `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/PARAMETERS.md` | Decision per item on which text is right; some texts are normative | Decide each, then correct the text that is wrong, following the stability rules in `VERSIONING.md` | `PROTOCOL.md §6`; `PROTOCOL.md §16`; `OBJECTS.md §8.2`; `PARAMETERS.md` |
+| 10. Specification inconsistencies found during the SECURITY.md review | Medium | `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/PARAMETERS.md`, `operations/DEPLOYMENT.md` | Decision per item on which text is right; some texts are normative | Decide each, then correct the text that is wrong, following the stability rules in `VERSIONING.md` | `PROTOCOL.md §6`; `PROTOCOL.md §16`; `OBJECTS.md §8.2`; `PARAMETERS.md`; `PROTOCOL.md §26`; `DEPLOYMENT.md §3.6` |
+| 11. Language and binding strategy | High | `ROADMAP.md` | A decision before milestone M1 or M2 begins; no decision has been made | Record the decision with implementation evidence; the candidates are listed in the section below | `ROADMAP.md §2`; `operations/IMPLEMENTATION-NOTES.md` |
+| 12. Stability list in `VERSIONING.md` | Medium | `spec/VERSIONING.md`, `spec/PROTOCOL.md` | Decision on which list is intended | Make the list and the markers agree, following the stability rules in `VERSIONING.md` | `VERSIONING.md` marked-sections list; `PROTOCOL.md §23`; `PROTOCOL.md §40`; `REVISIONS.md` Revision 2.5 |
 
 ---
 
@@ -484,11 +486,16 @@ Entries in `REVISIONS.md` are never edited after publication
 
 **Unresolved.** The independent review of `spec/SECURITY.md` for
 revision 2.4 found four places where the repository disagrees with
-itself. None was changed, because revision 2.4 makes no normative
-change.
+itself. None was changed in revision 2.4, because that revision made
+no normative change. Revision 2.6 corrected the first and records a fifth,
+found while preparing it; four remain.
 
-- `PROTOCOL.md §6` labels threshold recovery "deferred" in the key-role
-  table. `PROTOCOL.md §18` and `PROTOCOL.md §46` call it planned.
+- **Resolved in revision 2.6.** `PROTOCOL.md §6` labeled threshold
+  recovery "deferred" in the key-role table, and `PROTOCOL.md §2` did
+  the same in design goal 13. `PROTOCOL.md §18` and `PROTOCOL.md §46`
+  call it planned, as do `ROADMAP.md §7`, `VERSIONING.md`, and
+  `design/EXTENSIONS.md`. Both places now say planned. The correction
+  changes a status word and no requirement.
 - The example in `PROTOCOL.md §16` places a KeyRevocation at sequence 3
   after objects signed by an Authorization Key, as if they shared a
   stream. `PROTOCOL.md §36` gives each stream one signing authority, and
@@ -498,9 +505,78 @@ change.
   FORK_DETECTED.
 - The introduction of `PARAMETERS.md` says literal values do not appear
   in normative text. `PROTOCOL.md §21.2` states literal pairing values.
+- `PROTOCOL.md §26` names QUIC among the permitted transports next to
+  the statement that a conformant implementation supports at least one
+  transport that survives networks that block UDP, and `DEPLOYMENT.md §3.6`
+  calls QUIC an acceptable alternative in that context. QUIC is carried in
+  UDP datagrams, so it does not survive a network that blocks UDP. This is
+  a deployment and transport inconsistency that needs clarification. It is
+  not recorded as a normative change, and no text was altered.
 
 `PROTOCOL.md §21` is marked under-review. A change to a stable section
 requires a protocol-version bump (D38).
 
-- Needs decision: for each item, which text is right.
+- Needs decision: for each of the four remaining items, which text is right.
 - Needs implementation: the edits, after the decisions.
+
+---
+
+## 11. Language and binding strategy
+
+**Unresolved.** An external review of the specification proposed
+candidate implementation languages. No decision has been made. A
+decision is needed before implementation of `ROADMAP.md §2` milestone M1
+(test vectors) or milestone M2 (reference implementation) begins, and it
+interacts with milestone M3, which requires a second implementation in a
+different language or by a different author.
+
+The candidates below are recorded as proposals only. None is selected,
+ranked, or recommended by this document.
+
+- A possible Rust implementation of the security, CBOR, and verifier
+  core, with thin platform bindings.
+- Possible Go servers and an independent second implementation.
+- Possible TypeScript tooling, browser bindings, or conformance
+  harnesses.
+- Python only as a potential tool for generating test vectors or as a
+  conformance oracle.
+
+The choice should be revisited with implementation evidence, for
+example from a prototype of the canonical encoding in `OBJECTS.md §2`
+and the chain construction in `OBJECTS.md §3`, checked against the
+vector format in `CONFORMANCE.md §3`. Constraints that the specification
+already implies are collected, without a language preference, in
+`operations/IMPLEMENTATION-NOTES.md`.
+
+- Needs decision: the language and binding strategy for milestones M1
+  to M3.
+- Needs implementation: none until the decision is made.
+
+---
+
+## 12. Stability list in VERSIONING.md
+
+**Unresolved.** The list "Marked sections in the current revision" in
+`VERSIONING.md` differs from the stability markers in `PROTOCOL.md`.
+
+- `VERSIONING.md` lists as stable `PROTOCOL.md §1`, `PROTOCOL.md §23`,
+  `PROTOCOL.md §25`, `PROTOCOL.md §36`, `PROTOCOL.md §37`,
+  `PROTOCOL.md §39`, `PROTOCOL.md §41`, `PROTOCOL.md §42`, and
+  `OBJECTS.md §2`, `OBJECTS.md §3`, `OBJECTS.md §4`, `OBJECTS.md §8`. It
+  lists as under review `PROTOCOL.md §21`, `PROTOCOL.md §27`, and
+  `PROTOCOL.md §40`.
+- The markers in the files are stable on `PROTOCOL.md §23`,
+  `PROTOCOL.md §25`, and `PROTOCOL.md §39`, and under review on
+  `PROTOCOL.md §21` and `PROTOCOL.md §27`. `OBJECTS.md` carries no
+  markers. The entries from `REVISIONS.md` Revision 2.2 onward list the
+  five markers in the files.
+
+A build rule in `VERSIONING.md` turns on which sections are stable, so
+the difference affects which edits need a protocol-version bump. No
+protocol-version decision is recorded here.
+
+- Needs decision: which list is intended. If the `VERSIONING.md` list is
+  intended, the markers in the files are incomplete. If the file markers
+  are intended, the `VERSIONING.md` list is out of date.
+- Needs implementation: the edit that makes them agree, following the
+  stability rules in `VERSIONING.md`.

@@ -9,6 +9,100 @@ entry.
 
 ---
 
+## Revision 2.6
+
+**Protocol version:** v0.6.3 (unchanged)
+
+**Applied changes.**
+
+*Documentation.*
+- `design/LINEAGE.md` adds prior-art entries for Keybase sigchains,
+  Secure Scuttlebutt feeds, KERI, UCAN, Biscuit, Macaroons, Nebula,
+  ZeroTier, libp2p, Certificate Transparency, Trillian, TUF, Signal, the
+  Noise protocol, SPIFFE, ICE/STUN/TURN, QUIC, and Git. Each entry names
+  the concept borrowed, where Grid departs, why the concept is
+  relevant, and the Grid sections that relate to it. No entry claims
+  novelty, superiority, or equivalence.
+- `ROADMAP.md` adds section 6.1, which restates five known limitations
+  with the sections they rely on: no in-band Identity Root recovery,
+  no normative bound on revocation propagation, an incomplete
+  specification, metadata visible to infrastructure operators, and
+  verifier state loss. The section is non-normative and ranks nothing.
+  Two existing lines are corrected: the metadata row of the section 6
+  table named privacy transport as `planned`, and now names metadata
+  minimization, which `PROTOCOL.md §46` lists as `planned`; and the
+  specification work queue row for prior-art expansion records that the
+  entries now exist.
+- `operations/IMPLEMENTATION-NOTES.md` added. It is non-normative
+  implementation guidance. It restates implementation constraints that
+  the specification already contains, each with its citation, and it
+  prescribes nothing.
+- `README.md` lists the new file in the repository layout.
+- `docs/FOLLOW-UPS.md` records two deferred items. Item 11 records that a
+  language and binding strategy decision is needed before milestone M1
+  or M2 and that no decision has been made. Item 12 records that the
+  list of marked sections in `spec/VERSIONING.md` differs from the
+  markers in `spec/PROTOCOL.md`. Item 10 records that the first of its
+  four inconsistencies is resolved and adds a fifth: `PROTOCOL.md §26`
+  and `DEPLOYMENT.md §3.6` describe QUIC as usable on networks that block
+  UDP, while QUIC is carried in UDP datagrams. It is recorded as a
+  deployment and transport inconsistency that needs clarification, not
+  as a normative change, and no text was altered for it.
+
+*Terminology correction.*
+- `spec/PROTOCOL.md` section 2 (design goal 13) and section 6 (the
+  key-role table) described threshold recovery as `deferred`. They now
+  say `planned`. `spec/PROTOCOL.md` sections 18 and 46,
+  `spec/VERSIONING.md`, `ROADMAP.md`, `design/EXTENSIONS.md`,
+  `design/REJECTED.md`, `design/RATIONALE.md`, and `spec/SECURITY.md`
+  already said `planned`. Under the status words in `spec/VERSIONING.md`,
+  `deferred` means the feature is not in the roadmap, and threshold
+  recovery is in the roadmap.
+
+*Tooling.*
+- `tools/validate.py` adds checks V24 to V27. V24 covers
+  `operations/IMPLEMENTATION-NOTES.md`: header, non-normative statement,
+  no normative keywords, a citation in every statement, and no figures.
+  V25 covers the new `design/LINEAGE.md` entries and the
+  `ROADMAP.md` section 6.1 statements. V26 checks that every status
+  word given for threshold recovery is `planned`. V27 checks that no
+  dollar or throughput figure was added since revision 2.5. V7, V11, V15,
+  and V16 are updated for this revision.
+- `tools/selftest.py` adds negative cases for a broken reference and a
+  normative keyword in the notes, an unsupported claim in
+  `spec/SECURITY.md`, a stale revision string, an unexpected new file,
+  and the other new checks.
+- `tools/README.md` describes the new checks.
+
+*Structure.*
+- Revision strings advanced across all documents. The protocol version
+  is unchanged.
+
+**Normative changes.** One terminology correction in normative text and
+no change to any requirement. The only normative-text change is the
+replacement of the status word `deferred` with `planned` for threshold
+recovery in `spec/PROTOCOL.md` sections 2 and 6, so that they agree with
+sections 18 and 46. It does not change a requirement or the behavior of
+any stable section. No rule, object, schema, parameter, or stability
+marker changed. Sections 2 and 6 carry no stability marker, so the build
+rule in `spec/VERSIONING.md` does not require a protocol-version bump,
+and the protocol version remains v0.6.3.
+
+**Open questions.** Same as revision 2.5, plus items 11 and 12 added to
+`docs/FOLLOW-UPS.md`.
+
+**Stability markers after this revision.** Unchanged from revision 2.2.
+
+Stable:
+- Protocol §23, §25, §39
+
+Under review:
+- Protocol §21, §27
+
+`OBJECTS.md` carries no stability markers.
+
+---
+
 ## Revision 2.5
 
 **Protocol version:** v0.6.3 (unchanged)

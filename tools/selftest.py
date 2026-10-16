@@ -10,7 +10,13 @@ there, runs tools/validate.py in the clone, and checks which checks fail. The
 repository you run it in is never modified. It needs git and Python 3 only.
 
 Each case states the checks that must fail. One case states that nothing may
-fail: historical references inside docs/cleanup/ are allowed.
+fail: historical references inside docs/cleanup/ are allowed. The cases added
+in revision 2.6 cover operations/IMPLEMENTATION-NOTES.md (a broken reference, a
+normative keyword, an uncited statement, a dangling document name, a named
+language), a new unsupported claim in spec/SECURITY.md, a stale revision
+string, an unexpected new file, a dollar figure, a superiority claim in a
+LINEAGE entry, an edited LINEAGE entry, and a threshold-recovery status that
+disagrees with the rest of the repository.
 """
 import re
 import subprocess
@@ -48,6 +54,7 @@ def create(path, text):
 # Credentials are built at run time so that this file does not contain one.
 FAKE_TOKEN = "gh" + "p_" + "A1b2C3d4E5" * 4
 LOCAL_PATH = "/" + "home" + "/someone/project"
+NOTES = "operations/IMPLEMENTATION-NOTES.md"
 HISTORICAL = ("\nHistorical note: see the Operator Guide, protocol v0.6.2, PROTOCOL.md §99,\n"
               "the section \"Nonexistent Chapter\", and the stated threat model.\n")
 
@@ -78,6 +85,34 @@ CASES = [
      append("docs/cleanup/MERGE-PLAN.md", "\nA later edit.\n"), {"V21"}),
     ("historical references inside docs/cleanup/ do not fail",
      append("docs/cleanup/README.md", HISTORICAL), set()),
+    ("broken section reference in IMPLEMENTATION-NOTES.md",
+     replace(NOTES, "(`OBJECTS.md §2.9`)", "(`OBJECTS.md §99`)"), {"V1"}),
+    ("normative keyword in IMPLEMENTATION-NOTES.md",
+     append(NOTES, "\n- An implementation MUST do something (`PROTOCOL.md §43`).\n"), {"V24"}),
+    ("uncited statement in IMPLEMENTATION-NOTES.md",
+     append(NOTES, "\n- A statement with no citation.\n"), {"V24"}),
+    ("language named in IMPLEMENTATION-NOTES.md",
+     append(NOTES, "\n- The core is written in Rust (`PROTOCOL.md §43`).\n"), {"V24"}),
+    ("dangling document name in IMPLEMENTATION-NOTES.md",
+     append(NOTES, "\n- See the Operator Guide (`PROTOCOL.md §43`).\n"), {"V17"}),
+    ("new unsupported claim in spec/SECURITY.md",
+     append("spec/SECURITY.md", "\nA new rate limit applies to pairing (`PAIRING_RATE_LIMIT`).\n"),
+     {"V9", "V16", "V19"}),
+    ("stale revision string",
+     replace("spec/GLOSSARY.md", "**Revision:** 2.6", "**Revision:** 2.5"), {"V6"}),
+    ("unexpected new file outside the manifest",
+     create("operations/EXTRA-NOTES.md", "Extra file.\n"), {"V11"}),
+    ("dollar figure added to a current document",
+     append("design/LINEAGE.md", "\nAbout $5 a month.\n"), {"V27"}),
+    ("superiority claim in a LINEAGE entry",
+     replace("design/LINEAGE.md", "Grid has no certificate authority.",
+             "Grid has no certificate authority and is better for it."), {"V25"}),
+    ("existing LINEAGE entry edited",
+     replace("design/LINEAGE.md", "The protocol is not novel in its parts.",
+             "The protocol is novel in its parts."), {"V16"}),
+    ("threshold recovery relabeled deferred",
+     replace("spec/PROTOCOL.md", "Threshold recovery (planned) | Offline",
+             "Threshold recovery (deferred) | Offline"), {"V26"}),
 ]
 
 

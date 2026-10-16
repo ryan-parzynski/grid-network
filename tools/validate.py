@@ -10,8 +10,9 @@ the full git history of the repository (a normal clone; in CI use
 fetch-depth: 0). Exit status is 0 only if every check passes.
 
 Checks V1-V16 descend from the validation gate used for revisions 2.2 and
-2.3. V17-V21 are added in revision 2.4. Nothing here changes the
-specification; the script only reads the repository.
+2.3. V17-V20 were added in revision 2.4, V21-V23 in revision 2.5, and
+V24-V27 in revision 2.6. Nothing here changes the specification; the
+script only reads the repository.
 """
 import os
 import re
@@ -26,6 +27,7 @@ BASE_2_1 = "9898163"   # revision 2.1: the base of the revision 2.2 cleanup
 REV_2_2 = "8527311"    # published revision 2.2 / protocol v0.6.3
 REV_2_3 = "3d9cd36"    # published revision 2.3 (last revision before this tool)
 REV_2_4 = "ccb0b1b"    # published revision 2.4 (this tool and its CI workflow)
+REV_2_5 = "0b041fe"    # published revision 2.5 (historical archive and self-test)
 
 # Files that may differ from BASE_2_1. Anything else is a scope violation.
 ALLOWED_CHANGES = {
@@ -39,6 +41,8 @@ ALLOWED_CHANGES = {
     # revision 2.5: historical audit archive and its self-test
     "docs/cleanup/MERGE-PLAN.md", "docs/cleanup/SECURITY-REVIEW.md",
     "docs/cleanup/EXECUTION-RECORD.md", "docs/cleanup/README.md", "tools/selftest.py",
+    # revision 2.6: non-normative implementation notes
+    "operations/IMPLEMENTATION-NOTES.md",
 }
 
 # Historical audit archive. Files here keep retired version numbers, stale references and
@@ -109,7 +113,7 @@ def show(ref, path):
     return git("show", "%s:%s" % (ref, path))
 
 
-for c in (BASE_2_1, REV_2_2, REV_2_3, REV_2_4):
+for c in (BASE_2_1, REV_2_2, REV_2_3, REV_2_4, REV_2_5):
     if not have(c):
         print("ERROR: commit %s is not in this clone. Fetch the full history "
               "(git fetch --unshallow, or fetch-depth: 0 in CI) and run again." % c)
@@ -288,8 +292,8 @@ check("V6  version strings consistent (revision %s, protocol %s, taken from REVI
 
 # V7 ----------------------------------------------------------------------------------
 bad = []
-if entries[:4] != ["2.4", "2.3", "2.2", "2.1"] and entries[1:5] != ["2.4", "2.3", "2.2", "2.1"]:
-    bad.append("entries are not ordered newest first with 2.4, 2.3, 2.2, 2.1 contiguous: %s" % entries[:6])
+if not any(entries[i:i + 5] == ["2.5", "2.4", "2.3", "2.2", "2.1"] for i in range(3)):
+    bad.append("entries are not ordered newest first with 2.5, 2.4, 2.3, 2.2, 2.1 contiguous: %s" % entries[:7])
 if "historical" not in rev.split("## Revision 2.1")[0].split("## Revision 2.2")[1]:
     bad.append("the 2.2 entry does not mark the 2.1 stability list historical")
 actual = []
@@ -320,11 +324,11 @@ if len(actual) != 5:
 for f in files:
     if f != "spec/PROTOCOL.md" and "<!-- stability:" in text[f]:
         bad.append("%s unexpectedly carries a stability marker" % f)
-old_rev = show(REV_2_4, "REVISIONS.md")
-_head, _tail = old_rev.split("## Revision 2.4\n", 1)
-if not (rev.startswith(_head) and rev.endswith("## Revision 2.4\n" + _tail)):
-    bad.append("entries for revision 2.4 and earlier, or the introduction, were altered (append-only rule)")
-check("V7  REVISIONS: newest first, history byte-preserved, markers match files, 2.1 list marked historical", bad)
+old_rev = show(REV_2_5, "REVISIONS.md")
+_head, _tail = old_rev.split("## Revision 2.5\n", 1)
+if not (rev.startswith(_head) and rev.endswith("## Revision 2.5\n" + _tail)):
+    bad.append("entries for revision 2.5 and earlier, or the introduction, were altered (append-only rule)")
+check("V7  REVISIONS: newest first, history byte-preserved through 2.5, markers match files, 2.1 list marked historical", bad)
 
 # V8 ----------------------------------------------------------------------------------
 bad = []
@@ -468,7 +472,9 @@ COVERAGE = {
     "8": ["README.md", "CONFORMANCE.md", "PITCHES.md", "RULES.md", "RENDEZVOUS.md",
           "ROADMAP.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "LICENSE.md"],
     "9": ["v0.6.3", "v0.6.2", "normative", "Revision 2.2", "REVISIONS.md"],
-    "10": ["PROTOCOL.md §6", "PROTOCOL.md §16", "OBJECTS.md §8.2", "PARAMETERS.md", "FORKED"],
+    "10": ["PROTOCOL.md §6", "PROTOCOL.md §16", "OBJECTS.md §8.2", "PARAMETERS.md", "FORKED", "PROTOCOL.md §26", "DEPLOYMENT.md §3.6", "QUIC"],
+    "11": ["Rust", "Go", "TypeScript", "Python", "no decision", "M1", "M2", "IMPLEMENTATION-NOTES.md"],
+    "12": ["VERSIONING.md", "Marked sections", "PROTOCOL.md §23", "PROTOCOL.md §40", "OBJECTS.md §8"],
 }
 bad = []
 FU = "docs/FOLLOW-UPS.md"
@@ -487,7 +493,7 @@ else:
     expect = [("1.", "Archive gap merges"), ("2.", "Appendix C"), ("3.", "DEFAULT_REACHABILITY_CREDIT_REWARD"),
               ("4.", "OBJECTS.md"), ("5.", "Appendix B"), ("6.", "Security Addendum"),
               ("7.", "document names"), ("8.", "README"), ("9.", "v0.6.3"),
-              ("10.", "inconsistenc")]
+              ("10.", "inconsistenc"), ("11.", "language"), ("12.", "stability")]
     secs = {}
     cur = None
     for l in lines[FU]:
@@ -678,6 +684,60 @@ if latest == "2.5":
         bad.append("a protocol-version line changed; revision 2.5 states it is unchanged")
     if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
         bad.append("2.5 stability lists differ from the five markers")
+if latest == "2.6" and m_new:
+    for want in ("(unchanged)", "**Normative changes.** One terminology correction", "`spec/PROTOCOL.md`",
+                 "`design/LINEAGE.md`", "`ROADMAP.md`", "`operations/IMPLEMENTATION-NOTES.md`",
+                 "`docs/FOLLOW-UPS.md`", "`tools/validate.py`", "`tools/selftest.py`", "non-normative",
+                 "no change to any requirement"):
+        if want not in fe:
+            bad.append("2.6 entry missing: " + want)
+    ch6 = [c.split("\t") for c in git("diff", "--name-status", REV_2_5, "HEAD").split("\n") if c]
+    added6 = sorted(p for s_, p in ch6 if s_ == "A")
+    if added6 != ["operations/IMPLEMENTATION-NOTES.md"]:
+        bad.append("files added since 2.5 are %s; the 2.6 entry describes operations/IMPLEMENTATION-NOTES.md" % added6)
+    if [p for s_, p in ch6 if s_ not in ("A", "M")]:
+        bad.append("files were deleted or renamed since 2.5")
+    revre6 = re.compile(r"^(\*\*(Document revision|Revision):\*\* \d\.\d|  \d\.\d\)\. It advances whenever the document changes\.|"
+                        r"`2\.0`, `2\.1`, `2\.2`, and so on\. The current document is revision \d\.\d\.|revision is \d\.\d\.)$")
+
+    def changed_lines6(path):
+        d_ = git("diff", "-U0", REV_2_5, "HEAD", "--", path).split("\n")
+        return [l for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
+
+    # Files whose substance may change in 2.6. For each: the exact lines that may be removed
+    # and the exact lines that may be added (None means any added line is allowed).
+    rules6 = {
+        "spec/PROTOCOL.md": ({"    status: `deferred`).", "| Recovery Key | Principal | Threshold recovery (deferred) | Offline |"},
+                             {"    status: `planned`).", "| Recovery Key | Principal | Threshold recovery (planned) | Offline |"}),
+        "README.md": (set(), {"      IMPLEMENTATION-NOTES.md Non-normative implementation notes"}),
+        "design/LINEAGE.md": (set(), None),
+        "ROADMAP.md": ({"| Metadata is visible to infrastructure operators | Peers are identified by design | Multiple providers; privacy transport is `planned` |",
+                        "| Prior-art expansion for libp2p, Noise, QUIC | `design/LINEAGE.md` | Not started |"}, None),
+        "docs/FOLLOW-UPS.md": ({"",
+                                "itself. None was changed, because revision 2.4 makes no normative",
+                                "change.",
+                                "| 10. Specification inconsistencies found during the SECURITY.md review | Medium | `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/PARAMETERS.md` | Decision per item on which text is right; some texts are normative | Decide each, then correct the text that is wrong, following the stability rules in `VERSIONING.md` | `PROTOCOL.md §6`; `PROTOCOL.md §16`; `OBJECTS.md §8.2`; `PARAMETERS.md` |",
+                                "- `PROTOCOL.md §6` labels threshold recovery \"deferred\" in the key-role",
+                                "  table. `PROTOCOL.md §18` and `PROTOCOL.md §46` call it planned.",
+                                "- Needs decision: for each item, which text is right."}, None),
+    }
+    tooling6 = {"REVISIONS.md", "tools/validate.py", "tools/selftest.py", "tools/README.md",
+                "operations/IMPLEMENTATION-NOTES.md"}
+    for s_, p in ch6:
+        if s_ != "M" or p in tooling6 or historical(p):
+            continue
+        rem_ok, add_ok = rules6.get(p, (set(), set()))
+        for l in changed_lines6(p):
+            if revre6.match(l[1:]):
+                continue
+            if l[0] == "-" and l[1:] not in rem_ok:
+                bad.append("%s: line removed or altered beyond the 2.6 scope: %r" % (p, l[1:70]))
+            if l[0] == "+" and add_ok is not None and l[1:] not in add_ok:
+                bad.append("%s: line added beyond the 2.6 scope: %r" % (p, l[1:70]))
+    if re.search(r"^-\*\*Protocol version:\*\*", git("diff", "-U0", REV_2_5, "HEAD"), re.M):
+        bad.append("a protocol-version line changed; revision 2.6 states it is unchanged")
+    if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
+        bad.append("2.6 stability lists differ from the five markers")
 check("V16 newest revision entry is complete and matches the actual changes; protocol version unchanged", bad)
 
 # V17 ---------------------------------------------------------------------------------
@@ -869,6 +929,153 @@ LIMIT = 1024 * 1024
 bad = ["%s is %d bytes; the limit is %d" % (f, (ROOT / f).stat().st_size, LIMIT)
        for f in sorted(tracked) if (ROOT / f).is_file() and (ROOT / f).stat().st_size > LIMIT]
 check("V23 no tracked file exceeds 1 MiB (docs/cleanup/ included)", bad)
+
+# V24 ---------------------------------------------------------------------------------
+# operations/IMPLEMENTATION-NOTES.md: non-normative, no normative keywords, every statement cites a section.
+NOTES = "operations/IMPLEMENTATION-NOTES.md"
+bad = []
+if NOTES not in tracked:
+    bad.append("%s does not exist" % NOTES)
+else:
+    nt, nl = text[NOTES], lines[NOTES]
+    if nl[0] != "# Grid Network — Implementation Notes":
+        bad.append("title line")
+    if nl[2:4] != ["**Revision:** %s" % latest, "**Protocol version:** %s" % pv]:
+        bad.append("header lines")
+    if "**Repository path:** `%s`" % NOTES not in nt:
+        bad.append("repository path line")
+    if "This document is non-normative implementation guidance." not in nt:
+        bad.append("non-normative statement")
+    for m in re.finditer(r"\b(MUST NOT|MUST|SHALL NOT|SHALL|SHOULD NOT|SHOULD|MAY|REQUIRED|RECOMMENDED|OPTIONAL)\b", nt):
+        bad.append("normative keyword %r" % m.group(1))
+    for m in re.finditer(r"\b(must|shall|should|need to|needs to|has to|have to)\b", nt):
+        bad.append("prescriptive word %r" % m.group(1))
+    for m in re.finditer(r"\b(Rust|Go|TypeScript|Python|Java|Kotlin|Swift|C\+\+)\b", nt):
+        bad.append("names a language (%r); the notes select none" % m.group(1))
+    for pat, why in ((r"\$\s?\d", "dollar figure"),
+                     (r"\b\d+\s?(ms|seconds?|minutes?|hours?|days?|Mbps|Gbps|MB|GB|%)\b", "literal figure")):
+        for m in re.finditer(pat, nt):
+            bad.append("%s: %r" % (why, m.group(0)))
+    have_secs = re.findall(r"^## \d+\. (.*)$", nt, re.M)
+    want_secs = ["Encoding and canonicalization", "Domain separation and chain-hash construction",
+                 "Test vectors and interoperability claims", "Verifier state and persistence",
+                 "Clocks and suspend or resume", "Transport, NAT traversal, relay fallback, and path selection",
+                 "Platform differences"]
+    if have_secs != want_secs:
+        bad.append("sections are %s; expected %s" % (have_secs, want_secs))
+    first = [i for i, l in enumerate(nl) if l.startswith("## ")]
+    items, cur_i = [], None
+    for l in (nl[first[0]:] if first else []):
+        if l.startswith("#") or l.strip() in ("", "---"):
+            if cur_i:
+                items.append(cur_i)
+            cur_i = None
+            continue
+        if re.match(r"^(- |\d+\. )", l):
+            if cur_i:
+                items.append(cur_i)
+            cur_i = l
+        elif cur_i is None:
+            cur_i = l
+        else:
+            cur_i += " " + l
+    if cur_i:
+        items.append(cur_i)
+    if len(items) < 40:
+        bad.append("only %d statements found; expected at least 40" % len(items))
+    for it in items:
+        if not named.search(it):
+            bad.append("statement without a section citation: %s" % it[:60])
+    if len(re.findall("§", nt)) != len(list(named.finditer(nt))):
+        bad.append("a section sign is not attached to a named document (write `PROTOCOL.md §N`)")
+    if "IMPLEMENTATION-NOTES.md" not in text["README.md"].split("## Repository layout")[1].split("\n---")[0]:
+        bad.append("README.md layout list does not include IMPLEMENTATION-NOTES.md")
+check("V24 IMPLEMENTATION-NOTES.md is non-normative, selects no language, and cites a section for every statement", bad)
+
+# V25 ---------------------------------------------------------------------------------
+# Prior-art entries in design/LINEAGE.md and the known-limitation statements in ROADMAP.md section 6.1.
+LINEAGE_NEW = ["Keybase sigchains", "Secure Scuttlebutt feeds", "KERI", "UCAN", "Biscuit", "Macaroons", "Nebula",
+               "ZeroTier", "libp2p", "Certificate Transparency", "Trillian", "TUF", "Signal", "Noise protocol",
+               "SPIFFE", "ICE/STUN/TURN", "QUIC", "Git"]
+LIMITS = ["No in-band Identity Root recovery", "Revocation propagation has no normative bound",
+          "Specification incomplete", "Metadata visible to infrastructure operators", "Verifier state loss"]
+bad = []
+parts = re.split(r"(?m)^## ", text["design/LINEAGE.md"])
+order = [q.split("\n", 1)[0].strip() for q in parts[1:]]
+body_of = {q.split("\n", 1)[0].strip(): q for q in parts[1:]}
+if "Additional prior art" not in order or order[order.index("Additional prior art") + 1:][:len(LINEAGE_NEW)] != LINEAGE_NEW:
+    bad.append("LINEAGE.md entries after 'Additional prior art' are %s; expected %s" % (order, LINEAGE_NEW))
+banned = re.compile(r"\b(novel|novelty|superior|better|best|worse|worst|clever|equivalent|equals?|identical|replaces?|"
+                    r"improves?|outperforms?|faster|stronger|weaker|simpler)\b", re.I)
+for name in LINEAGE_NEW:
+    b_ = body_of.get(name)
+    if b_ is None:
+        continue
+    for lab in ("**Borrowed.**", "**Departed.**", "**Why.**", "**Grid sections.**"):
+        if lab not in b_:
+            bad.append("LINEAGE %s is missing %s" % (name, lab))
+    if "**Contribution.**" in b_:
+        bad.append("LINEAGE %s has a Contribution line; new entries make no novelty claim" % name)
+    if "**Grid sections.**" in b_ and not named.search(b_.split("**Grid sections.**")[1]):
+        bad.append("LINEAGE %s cites no Grid section" % name)
+    for m in banned.finditer(b_):
+        bad.append("LINEAGE %s uses %r (no novelty, superiority, or equivalence claims)" % (name, m.group(0)))
+rmt = text["ROADMAP.md"]
+if "6.1" not in H["ROADMAP.md"] or "### 6.1 " not in rmt:
+    bad.append("ROADMAP.md has no section 6.1")
+else:
+    sec61 = rmt.split("### 6.1 ")[1].split("\n## ")[0]
+    if "known limitation" not in sec61:
+        bad.append("ROADMAP.md section 6.1 must use the term 'known limitation'")
+    rows61 = [l for l in sec61.split("\n") if l.startswith("| ") and not l.startswith(("| Limitation", "|---"))]
+    if [r.split("|")[1].strip() for r in rows61] != LIMITS:
+        bad.append("ROADMAP.md section 6.1 rows are %s; expected %s" % ([r.split("|")[1].strip() for r in rows61], LIMITS))
+    for r in rows61:
+        cells = [c.strip() for c in r.strip().strip("|").split("|")]
+        if len(cells) != 4 or any(not c for c in cells):
+            bad.append("ROADMAP.md section 6.1 row is malformed: " + r[:50])
+        elif not named.search(cells[2]):
+            bad.append("ROADMAP.md section 6.1 row cites no section: " + cells[0])
+    for m in re.finditer(r"\b(worst|best|biggest|major|critical|severe|serious|fatal|flaw|weak|weakness)\b", sec61, re.I):
+        bad.append("ROADMAP.md section 6.1 ranks or judges: %r" % m.group(0))
+check("V25 LINEAGE prior-art entries are complete and claim nothing; ROADMAP section 6.1 states five known limitations", bad)
+
+# V26 ---------------------------------------------------------------------------------
+# Every status word given for threshold recovery is `planned`.
+bad = []
+tr_pats = [r"[Tt]hreshold recovery \((\w+)\)", r"threshold-recovery`;\s+status: `(\w+)`",
+           r"\| Threshold recovery \| (\w+) \|", r"[Tt]hreshold recovery is a `?(\w+)`? feature",
+           r"[Tt]hreshold recovery is `(\w+)`", r"## Threshold recovery\s+\*\*Status:\*\* (\w+)"]
+found = []
+for f in current_files:
+    if f in ("REVISIONS.md", "docs/FOLLOW-UPS.md"):
+        continue
+    for pat in tr_pats:
+        for m in re.finditer(pat, text[f]):
+            found.append((f, m.group(1)))
+for f, st in found:
+    if st != "planned":
+        bad.append("%s labels threshold recovery %r; the repository's status is planned" % (f, st))
+for need in ("spec/PROTOCOL.md", "spec/VERSIONING.md", "ROADMAP.md", "design/EXTENSIONS.md"):
+    if need not in {f for f, _ in found}:
+        bad.append("no threshold-recovery status found in %s" % need)
+check("V26 threshold recovery carries the status word planned everywhere it is labeled", bad)
+
+# V27 ---------------------------------------------------------------------------------
+# No dollar or throughput figure has been added since revision 2.5 (tools and the archive excluded).
+bad = []
+FIGURES = [(r"\$\s?\d", "dollar figure"),
+           (r"\b\d[\d,.]*\s?(?:[KMGT]i?bps|[KMGT]i?B/s|bits? per second|bytes? per second|requests? per second|req/s|rps|pps|ops/s)\b",
+            "throughput figure")]
+for p_ in sorted(set(git("diff", "--name-only", REV_2_5, "HEAD").split())):
+    if p_.startswith("tools/") or historical(p_):
+        continue
+    for l in git("diff", "-U0", REV_2_5, "HEAD", "--", p_).split("\n"):
+        if l.startswith("+") and not l.startswith("+++"):
+            for pat, why in FIGURES:
+                for m in re.finditer(pat, l):
+                    bad.append("%s: added %s %r" % (p_, why, m.group(0)))
+check("V27 no dollar or throughput figure added since revision 2.5", bad)
 
 # ---- summary -----------------------------------------------------------------------
 print()

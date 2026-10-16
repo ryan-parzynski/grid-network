@@ -1,6 +1,6 @@
 # Grid Network Protocol Specification
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 **Status:** Sections marked `stable` are normative and will not change
 without a protocol-version bump. Sections marked `under-review` carry a
@@ -38,7 +38,7 @@ revision.
 
 - MUST, MUST NOT, SHOULD, SHOULD NOT, MAY are used per RFC 2119.
 - **Document revision** is the version of this specification (e.g.,
-  2.5). It advances whenever the document changes.
+  2.6). It advances whenever the document changes.
 - **Protocol version** is the feature set this specification defines
   (e.g., v0.6.3). Implementations conform to a protocol version, not a
   document revision.
@@ -130,7 +130,7 @@ Corollaries:
 11. Identity portability.
 12. Hardware-backed keys.
 13. Key sharding and threshold recovery (feature: `threshold-recovery`;
-    status: `deferred`).
+    status: `planned`).
 14. Graceful degradation.
 15. Continuous availability during update.
 16. Minimal metadata leakage.
@@ -261,7 +261,7 @@ Role definitions:
 | Device Key | One device | Authenticates device, signs reachability | Separate from Service |
 | Service Key | One service | Authenticates service, signs service records | Separate from Device |
 | Authorization Key | Delegated | Signs grants, leases, revocations | Own stream |
-| Recovery Key | Principal | Threshold recovery (deferred) | Offline |
+| Recovery Key | Principal | Threshold recovery (planned) | Offline |
 
 Minimum required separations:
 
@@ -1610,7 +1610,7 @@ conformance meaning in this specification.
 ## 45. Versioning
 
 **Document revision.** Advances whenever the specification changes.
-`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.5.
+`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.6.
 
 **Protocol version.** `vMAJOR.MINOR.PATCH`. The current protocol
 version is `v0.6.3`.

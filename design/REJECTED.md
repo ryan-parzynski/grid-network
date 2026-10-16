@@ -1,6 +1,6 @@
 # Grid Network — Rejected Approaches
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 This document records approaches that were considered and rejected, with

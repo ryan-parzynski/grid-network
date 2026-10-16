@@ -1,6 +1,6 @@
 # Grid Network — Extensions
 
-**Revision:** 2.5
+**Revision:** 2.6
 **Protocol version:** v0.6.3
 
 This document describes features that are not in the current protocol
