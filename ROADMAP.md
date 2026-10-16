@@ -1,6 +1,6 @@
 # Grid Network — Roadmap
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 **Repository path:** `ROADMAP.md`

@@ -1,6 +1,6 @@
 # Grid Network — Code of Conduct
 
-**Revision:** 2.3
+**Revision:** 2.4
 
 **Repository path:** `CODE_OF_CONDUCT.md`
 

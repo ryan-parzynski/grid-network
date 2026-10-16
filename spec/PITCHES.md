@@ -1,6 +1,6 @@
 # Grid Network — Pitches
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 **Repository path:** `spec/PITCHES.md`

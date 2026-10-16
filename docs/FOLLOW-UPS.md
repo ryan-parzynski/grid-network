@@ -1,6 +1,6 @@
 # Grid Network — Deferred Follow-ups
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 **Repository path:** `docs/FOLLOW-UPS.md`
@@ -62,12 +62,16 @@ is named. Historical material is evidence, not authority.
 | 1g. Level 6 cross-reference | Low | `spec/CONFORMANCE.md` | Decision on citing a non-normative document from the levels | Add one pointer line to `spec/SECURITY.md` in Level 6 | `CONFORMANCE.md §2`; cleanup plan (working file, unavailable) |
 | 2. Appendix C audit | Medium | `design/RATIONALE.md` history | Full history available (shallow clone) | Read-only passage-by-passage comparison with verdicts | Appendix C of the consolidated archive (historical archive); commits `b5e8be7`, `21b91b9`, `bbc81b5` (historical) |
 | 3. `DEFAULT_REACHABILITY_CREDIT_REWARD` | Medium | `spec/PARAMETERS.md` | Product decision: define or remove | Define in one document and update the cell, or remove the row | `spec/PARAMETERS.md`; `REVISIONS.md` Revision 2.2 |
+| 3b. Parameters whose "Defined in" cell does not state them | Medium | `spec/PARAMETERS.md`, `spec/PROTOCOL.md` | Decision per parameter: state the rule in the cited section, repoint the cell, or remove the row | Audit each row; change `PROTOCOL.md` only by a decision, otherwise repoint or remove | `spec/PARAMETERS.md`; `PROTOCOL.md §21`; `PROTOCOL.md §31` |
 | 4. `OBJECTS.md §10` pending work | High | `spec/OBJECTS.md`, `spec/CONFORMANCE.md` | Decisions on field sets; several earlier proposals were never accepted | Decide field sets first; then write schemas, vectors, suite | `OBJECTS.md §10`; `ROADMAP.md §4`; historical commits `d329409`, `ed627cb` |
 | 5. Appendix B open decisions | High | `spec/PROTOCOL.md`, `design/DECISIONS.md`, `ROADMAP.md` | Four human decisions | Decide each; record in the decision log; update affected sections | `ROADMAP.md §5`; `REVISIONS.md`; Appendix B (historical archive) |
 | 6. Security Addendum review | Low | `spec/SECURITY.md` | Decision per topic on whether to import | Review remaining sections against the repository; import only what traces to existing rules | Security Addendum (historical, `9f16353`); `spec/SECURITY.md` |
+| 6b. Evidence review not exhaustive | Low | `spec/SECURITY.md`, `docs/FOLLOW-UPS.md` | Same decision as item 6 | Finish the passage-by-passage review of the Security Addendum and the consolidated archive, or record that it will not be done | Security Addendum (historical); consolidated archive (historical archive) |
 | 7a. "Operator Guide" and "Design Record" | Medium | `spec/PROTOCOL.md`, `spec/GLOSSARY.md`, others | Decision on defining the terms or replacing them | Define once, or replace with directory references | `REVISIONS.md` Revisions 2.0 and 2.1 |
 | 7b. Cross-reference style in conventions | Low | `spec/PROTOCOL.md` | Decision on the canonical style | Choose one style and apply it to the conventions list | `PROTOCOL.md` conventions list; style used in `OBJECTS.md §2` |
 | 8. README repository layout | Low | `README.md` | None | Add the missing documents using the existing style | `README.md`; tracked file list |
+| 9. v0.6.3 normative-equivalence statement | Medium | `REVISIONS.md`, `spec/VERSIONING.md` | Decision on whether revision 2.2 changed any normative rule, and where to say so | Compare the normative text of revision 2.1 and revision 2.2; if no rule changed, say so in a later entry | `REVISIONS.md` Revision 2.2; `VERSIONING.md` |
+| 10. Specification inconsistencies found during the SECURITY.md review | Medium | `spec/PROTOCOL.md`, `spec/OBJECTS.md`, `spec/PARAMETERS.md` | Decision per item on which text is right; some texts are normative | Decide each, then correct the text that is wrong, following the stability rules in `VERSIONING.md` | `PROTOCOL.md §6`; `PROTOCOL.md §16`; `OBJECTS.md §8.2`; `PARAMETERS.md` |
 
 ---
 
@@ -222,6 +226,38 @@ earlier decision. This document does not propose a value.
 - Needs decision (product): whether a per-day reachability credit exists.
 - Needs implementation: either edit, after the decision.
 
+**3b. Parameters whose "Defined in" cell does not state them.** Several
+rows in `spec/PARAMETERS.md` name a section of `PROTOCOL.md` as the place
+where the parameter is defined, but that section does not use the
+symbol. A mechanical check found eleven. The cells name Protocol §43
+for `ED25519_SIGNATURE_BYTES` and `ED25519_PUBLIC_KEY_BYTES`, §11 for
+`MAX_CAPABILITY_CONSTRAINTS` and `MAX_CAPABILITY_NAMESPACE_LENGTH`, §21
+for `PAIRING_MAX_ATTEMPTS`, §24 for `DEFAULT_REACHABILITY_TTL`, §31 for
+`DEFAULT_REVOCATION_POLL_INTERVAL`, and §10 for
+`DEFAULT_LEASE_DURATION_MEDIA`, `DEFAULT_LEASE_DURATION_FILE`,
+`DEFAULT_LEASE_DURATION_SSH`, and `DEFAULT_LEASE_DURATION_ADMIN_SSH`.
+The check looks only for the symbol name. Whether a section states a
+value in other words was not examined.
+
+Two cases matter most. `PROTOCOL.md §20` and `PROTOCOL.md §21` state no
+limit on failed pairing attempts, and no other document states one, so
+`spec/SECURITY.md` makes no claim about an attempt limit.
+`DEFAULT_REVOCATION_POLL_INTERVAL` bears on the open question in
+`ROADMAP.md §5` (Q4), and `spec/SECURITY.md` does not rely on it.
+
+The existing literal defaults are retained unchanged by an earlier
+decision. This document does not propose values.
+
+**Options.**
+
+- State the rule in the cited section. That is a decision, and it may be
+  a normative change.
+- Repoint the cell at the document that does define the parameter.
+- Remove the row, if the behavior is not wanted.
+
+- Needs decision: which option for each parameter.
+- Needs implementation: the edits, after the decisions.
+
 ---
 
 ## 4. `OBJECTS.md` §10 schemas, test vectors, and conformance suite
@@ -335,6 +371,13 @@ review rule).
 **Also not fully reviewed.** The earlier `design/THREAT-MODEL.md` at
 commit `eeb3983` (historical; 599 lines). Only its opening was read.
 
+**6b. Evidence review not exhaustive.** The evidence pass for the
+revision 2.2 cleanup did not read every part of the consolidated
+archive (historical archive) or every section of the Security Addendum
+(historical) passage by passage. A gap in that pass is not evidence
+that the unread material agrees with the repository or is absent from
+it. Closing the gap is the same work as the review above and item 2.
+
 **Constraints for any import.** The material must stay non-normative,
 must contain no literal figures, must trace to an existing rule in
 `PROTOCOL.md` or `OBJECTS.md`, and must not contradict `PROTOCOL.md §18`
@@ -406,3 +449,53 @@ a directory line followed by indented file names with a short
 description.
 
 - Needs implementation: the additions.
+
+`tools/` and `.github/` are also not listed. `tools/README.md` describes
+the validation tool.
+
+---
+
+## 9. v0.6.3 normative-equivalence statement
+
+**Unresolved.** Revision 2.2 advanced the protocol version from v0.6.2
+to v0.6.3. The Revision 2.2 entry in `REVISIONS.md` does not state
+whether any normative rule changed. Revision 2.3 and revision 2.4 state
+that they made no normative changes; neither speaks for revision 2.2.
+A reader who sees only the version bump cannot tell whether v0.6.3
+behaves differently from v0.6.2.
+
+Entries in `REVISIONS.md` are never edited after publication
+(`VERSIONING.md`), so any statement has to appear in a later entry.
+
+- Needs decision: whether revision 2.2 changed any normative rule,
+  determined by comparing the normative text at revision 2.1 and
+  revision 2.2, and whether to record the result in a new entry.
+- Needs implementation: the comparison and the entry, after the
+  decision.
+
+---
+
+## 10. Specification inconsistencies found during the SECURITY.md review
+
+**Unresolved.** The independent review of `spec/SECURITY.md` for
+revision 2.4 found four places where the repository disagrees with
+itself. None was changed, because revision 2.4 makes no normative
+change.
+
+- `PROTOCOL.md §6` labels threshold recovery "deferred" in the key-role
+  table. `PROTOCOL.md §18` and `PROTOCOL.md §46` call it planned.
+- The example in `PROTOCOL.md §16` places a KeyRevocation at sequence 3
+  after objects signed by an Authorization Key, as if they shared a
+  stream. `PROTOCOL.md §36` gives each stream one signing authority, and
+  `PROTOCOL.md §42` places KeyRevocation in `stream:identity`.
+- `OBJECTS.md §8.2` describes the fork result as "Stream is in FORKED
+  state". `OBJECTS.md §9.3` and `PROTOCOL.md §39` name the state
+  FORK_DETECTED.
+- The introduction of `PARAMETERS.md` says literal values do not appear
+  in normative text. `PROTOCOL.md §21.2` states literal pairing values.
+
+`PROTOCOL.md §21` is marked under-review. A change to a stable section
+requires a protocol-version bump (D38).
+
+- Needs decision: for each item, which text is right.
+- Needs implementation: the edits, after the decisions.

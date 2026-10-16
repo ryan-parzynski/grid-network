@@ -1,6 +1,6 @@
 # Grid Network — Security Model
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 **Repository path:** `spec/SECURITY.md`
@@ -12,8 +12,9 @@ guidance. It introduces no object types, no authority, and no
 requirement. Where this document and the Protocol Specification
 conflict, the specification governs.
 
-Every statement in this document traces to a rule in `PROTOCOL.md` or
-`OBJECTS.md`. Where a rule is cited, the cited section is the source.
+Each statement cites the section it relies on. Where the source is not
+`PROTOCOL.md` or `OBJECTS.md`, the cited document is named. Where a rule
+is cited, the cited section is the source.
 
 ---
 
@@ -60,12 +61,12 @@ that bounds the outcome.
 | Malicious peer | Impersonate another principal or forge an authorization | Objects must verify against locally trusted anchors and the signing-authority matrix (`PROTOCOL.md §33`, `PROTOCOL.md §42`). A grant is valid only when signed by the issuer's Authorization Key (`PROTOCOL.md §9`) |
 | Malicious rendezvous | Forge or alter reachability, or withhold records | Records are signed and are hints, not proof of access (`PROTOCOL.md §23`, `PROTOCOL.md §24`). Withholding and staleness degrade availability only; peers may use several rendezvous providers (`PROTOCOL.md §43`) |
 | Malicious relay | Forge authorization or read traffic | A relay forwards traffic under a ticket and holds no authorization authority (`PROTOCOL.md §25`). Confidentiality is provided by the transport (`PROTOCOL.md §26`) |
-| Eavesdropper | Read traffic or observe grants | Traffic confidentiality is provided by the transport (`PROTOCOL.md §26`). Metadata observation is outside the protocol's protections (Section 3) |
-| Lost or stolen device | Use a device's keys | The issuer revokes the key (`PROTOCOL.md §16`). Exposure ends when the verifier learns of the revocation (`PROTOCOL.md §31`) or the lease expires (`PROTOCOL.md §10`) |
+| Eavesdropper | Read traffic | Traffic confidentiality is provided by the transport (`PROTOCOL.md §26`). Metadata observation is outside the protocol's protections (`PROTOCOL.md §47`, Section 3) |
+| Lost or stolen device | Use a device's keys | The Identity Root publishes a `KeyRevocation` (`PROTOCOL.md §14`, `PROTOCOL.md §16`, `PROTOCOL.md §42`). Revocations are pulled and have no normative propagation bound (`PROTOCOL.md §31`). Objects below `effective_sequence` remain valid only if the verifier had already accepted their chain hashes, and only until their own expiry (`PROTOCOL.md §16`, `PROTOCOL.md §17`) |
 | Insider | Exceed granted authority | Grants carry capabilities, and unknown capabilities never authorize access (`PROTOCOL.md §11`, `PROTOCOL.md §43`). Application authorization is separate (`PROTOCOL.md §13`) |
-| Verifier with an incorrect clock | Cause leases to be judged wrongly | Relative lease validity survives clock skew; absolute timestamps are bounded by `MAX_CLOCK_SKEW` (`PROTOCOL.md §32`, `PROTOCOL.md §39`) |
-| Replay attacker | Present captured objects again | Streams have monotonic sequence numbers and chain hashes (`OBJECTS.md §9`, `OBJECTS.md §3`). Leases carry observation records, and `MAX_LEASE_AGE` bounds replayed leases (`PROTOCOL.md §10`, `PROTOCOL.md §32`) |
-| Man-in-the-middle at pairing | Interpose between two devices | Pairing runs a password-authenticated key exchange over a secret delivered out of band, and attempts are limited (`PROTOCOL.md §20`, `PROTOCOL.md §21`) |
+| Verifier with an incorrect clock | Cause leases to be judged wrongly | Relative lease validity survives clock skew up to the lease duration (`PROTOCOL.md §32`). Absolute timestamps are vulnerable, and `MAX_CLOCK_SKEW` is the recommended mitigation (`PROTOCOL.md §39`) |
+| Replay attacker | Present captured objects again | Streams have monotonic sequence numbers and chain hashes (`OBJECTS.md §9`, `OBJECTS.md §3`). Verifiers persist observation records for relative lease validity, and a lease whose `issued_at` is older than `MAX_LEASE_AGE` is rejected (`PROTOCOL.md §10`) |
+| Man-in-the-middle at pairing | Interpose between two devices | Pairing runs a PAKE (SPAKE2) with a high-entropy secret delivered out of band, bound to a transcript that includes both principals' identity roots. The receiving user confirms the pairing, and the secret is consumed on first successful use (`PROTOCOL.md §20`, `PROTOCOL.md §21.1`, `PROTOCOL.md §21.3`). Residual limits are stated in `PROTOCOL.md §21.6`. Unattended enrollment weakens the confirmation property (`PROTOCOL.md §21.4`) |
 | Equivocating issuer | Publish two objects at one sequence | A verifier that observes both enters `FORK_DETECTED` and does not advance authorization until a `StreamResolution` is accepted (`OBJECTS.md §9.3`, `OBJECTS.md §9.4`, `PROTOCOL.md §40`) |
 | Sybil attacker | Create many identities | The protocol does not prevent identity creation. Admission control and rate limiting are infrastructure policy (`design/REJECTED.md` R7, `PROTOCOL.md §43`) |
 | Denial of service | Overwhelm infrastructure | Availability is outside the protocol's guarantees (`PROTOCOL.md §47`). Rate limiting is implementation guidance (`PROTOCOL.md §43`) |
@@ -75,9 +76,12 @@ therefore cannot be moved onto a different history without invalidating
 its signature. A chain hash does not reveal a fork to a verifier that
 has observed only one branch (`OBJECTS.md §3.8`).
 
-Failure behavior under each of these conditions is defined by the F1–F6
-semantics (`PROTOCOL.md §39`). The semantics are fail-closed for
-authorization and availability-preserving for reachability.
+The F1–F6 semantics (`PROTOCOL.md §39`) define failure behavior for
+authorization failure, reachability failure, clock skew, revocation
+ordering, forks, and communication interruption. F1 denies access when
+any authorization check fails. F2 tries alternative endpoints and relays
+when a reachability endpoint fails, and an unreachable peer is not a
+denial.
 
 ---
 
@@ -88,12 +92,13 @@ exclusion, the section is cited.
 
 - **Anonymity.** Peers are identified. Rendezvous and relay operators
   can observe metadata (`PROTOCOL.md §47`).
-- **Global surveillance resistance.** A network observer can observe
-  endpoints and traffic volume. The protocol does not hide them
-  (`PROTOCOL.md §47`).
-- **Endpoint compromise.** If the operating system of a device that
-  holds keys is compromised, the keys held on that device are
-  compromised. The protocol cannot protect them.
+- **Metadata protection.** Metadata is visible to infrastructure
+  operators (`PROTOCOL.md §47`). A relay can observe packet size,
+  timing, and source and destination identifiers (`PROTOCOL.md §25`).
+  Metadata minimization is `planned` (`PROTOCOL.md §46`).
+- **Endpoint compromise during pairing.** The protocol does not protect
+  against a compromised device or a coerced user during pairing
+  (`PROTOCOL.md §21.6`).
 - **Availability.** Identity and authorization semantics survive
   infrastructure changes. Reachability does not (`PROTOCOL.md §47`).
 - **Identity Root recovery.** Recovery is external and out of band
@@ -101,10 +106,10 @@ exclusion, the section is cited.
 - **Application authorization.** The protocol authorizes connectivity,
   not application roles or resource policy (`PROTOCOL.md §13`,
   `PROTOCOL.md §47`).
-- **Quantum resistance.** Ed25519 is not quantum-resistant. A
-  post-quantum signature suite is a `planned` feature, not part of the
-  current protocol version (`PROTOCOL.md §46`,
-  `design/EXTENSIONS.md`).
+- **Quantum resistance.** Ed25519 is vulnerable to quantum attacks
+  (`design/DECISIONS.md` D18). A post-quantum signature suite is a
+  `planned` feature, not part of the current protocol version
+  (`PROTOCOL.md §46`, `design/EXTENSIONS.md`).
 
 Conformance is not a security certification (`PROTOCOL.md §44`).
 
@@ -124,8 +129,6 @@ component gains.
 | Service Key | None | None | None | Service records for that service |
 | Rendezvous server | None | None | None | Withholding, stale records, metadata |
 | Relay | None | None | None | Disruption, metadata |
-| Network observer | None | None | None | Metadata |
-| Application | None | None | Capabilities already granted to it | None |
 
 Notes:
 
@@ -136,6 +139,18 @@ Notes:
   leases, or identity objects (`PROTOCOL.md §42`).
 - `GrantRevocation` is signed by the Identity Root, not by an
   Authorization Key (`PROTOCOL.md §15`, `PROTOCOL.md §42`).
+- Sources for the table. Identity Root: `PROTOCOL.md §18`.
+  Authorization Key and Device Key: `PROTOCOL.md §6` and
+  `PROTOCOL.md §42`. Service Key: `PROTOCOL.md §6` and `PROTOCOL.md §42`;
+  the protocol does not separately describe Service Key compromise, so
+  the "None" cells for that row follow from the signing-authority
+  matrix alone. Rendezvous server: `PROTOCOL.md §23` and
+  `PROTOCOL.md §47`. Relay: `PROTOCOL.md §25` and `PROTOCOL.md §47`; the
+  loss of a relay interrupts the relay sessions that use it
+  (`operations/DEPLOYMENT.md §8.2`).
+- The protocol does not describe the compromise of an application or
+  of a network observer as a key role, so the table has no rows for
+  them (`PROTOCOL.md §6`).
 
 ---
 
@@ -153,11 +168,12 @@ expires. The issuer provisions a new Authorization Key and re-issues
 grants under it (`PROTOCOL.md §16`, `PROTOCOL.md §17`).
 
 **Device Key compromise or device loss.** The Identity Root publishes a
-`KeyRevocation` for the device key, and the device is removed from the
-identity document's `device_bindings`. A verifier denies a peer whose
-device has been revoked from `device_bindings`
-(`PROTOCOL.md §16`, `PROTOCOL.md §27`, `CONFORMANCE.md §2`,
-`operations/DEPLOYMENT.md §7`).
+`KeyRevocation` for the device key (`PROTOCOL.md §16`,
+`PROTOCOL.md §42`). `operations/DEPLOYMENT.md §7` describes removing the
+device from the identity document. A verifier denies a peer whose
+device has been revoked from `device_bindings` (`CONFORMANCE.md §2`,
+Level 5), and checks that signing keys are current and not revoked
+(`PROTOCOL.md §27`).
 
 **Identity Root compromise.** The protocol provides no in-band
 recovery. Any in-band mechanism would be an authority the protocol
@@ -165,12 +181,13 @@ cannot trust. Recovery is external and out of band, and the protocol
 defines no recovery authority, no proof-of-ownership criteria, and no
 adjudication procedure (`PROTOCOL.md §18`, `design/REJECTED.md` R5).
 Threshold recovery is a `planned` feature and is not in the current
-protocol version.
+protocol version (`PROTOCOL.md §46`, `design/EXTENSIONS.md`).
 
 **Propagation.** Revocations are pulled, not pushed. The protocol
 defines no normative propagation bound (`PROTOCOL.md §14`,
-`PROTOCOL.md §31`, `design/REJECTED.md` R15). The recommended polling
-interval is `DEFAULT_REVOCATION_POLL_INTERVAL`.
+`PROTOCOL.md §31`). Pull-based revocation is the accepted model
+(`design/REJECTED.md` R15). Whether the protocol should define a
+normative polling interval is an open question (`ROADMAP.md §5`).
 
 ---
 
@@ -185,9 +202,10 @@ security weight:
 
 - Verify every signature and reject non-canonical or malformed
   encodings before semantic processing.
-- Apply the verification procedure in `OBJECTS.md §8` atomically
-  (`OBJECTS.md §8.1`).
+- Apply the verification procedure in `OBJECTS.md §8`. `OBJECTS.md §8.1`
+  defines that procedure as a single atomic operation.
 - Fail closed on missing information.
+- Never cache authorization indefinitely.
 - Never allow wall-clock time to extend authorization validity.
 - Never auto-resolve a fork without an explicit `StreamResolution`.
 - Never log credentials, grants, or leases, and never transmit private
@@ -195,11 +213,8 @@ security weight:
 
 Further guidance, not required by the specification:
 
-- Generate keys and nonces with the operating system's cryptographically
-  secure random number generator.
-- Keep an audit record of security-relevant events without key material.
-- Keep revocation state coherent across caches so that a revoked key is
-  not honored from a stale copy.
+- Log security events without key material. `PROTOCOL.md §43` lists this
+  as recommended.
 - Protect the Identity Root offline or in hardware, and keep backups
   apart from running keys (`operations/DEPLOYMENT.md §7`).
 
@@ -211,10 +226,10 @@ The following are not covered by this document. Where a feature is
 absent from the current protocol version, its status is stated.
 
 - Relay capacity planning and hardware (see `operations/RELAYS.md`).
-- Computational admission cost for infrastructure. Proof-of-work as a
-  foundation is rejected (`design/REJECTED.md` R8). Any use as an
-  admission policy is a deployment matter.
-- A security test program and security roadmap. Test vectors and
-  conformance levels are defined in `spec/CONFORMANCE.md`; the
-  development plan is in `ROADMAP.md`.
-- Recovery-time targets. The protocol defines no recovery time.
+- Admission control for infrastructure. It is a deployment policy
+  (`design/REJECTED.md` R7). Proof-of-work as a foundation is rejected
+  (`design/REJECTED.md` R8).
+- A security test program and security roadmap. The test vector format
+  and conformance levels are defined in `spec/CONFORMANCE.md`; no test
+  vectors have been published (`ROADMAP.md §1`). The development plan
+  is in `ROADMAP.md`.

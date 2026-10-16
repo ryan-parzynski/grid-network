@@ -1,6 +1,6 @@
 # Grid Network — Decision Log
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 This document records every design decision made for the protocol, with

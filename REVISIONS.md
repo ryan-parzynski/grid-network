@@ -9,6 +9,65 @@ entry.
 
 ---
 
+## Revision 2.4
+
+**Protocol version:** v0.6.3 (unchanged)
+
+**Applied changes.**
+
+*Corrections.*
+- `spec/SECURITY.md` sourcing corrected after an independent traceability
+  review of every claim against `PROTOCOL.md`, `OBJECTS.md`,
+  `PARAMETERS.md`, and the other documents it cites. Statements that no
+  cited section supports were removed or recast to what the sections say:
+  the pairing attempt limit, the F1–F6 summary, the lost-or-stolen device
+  row, the clock-skew and replay rows, the eavesdropper row, the
+  surveillance and endpoint-compromise bullets, the Application and
+  Network observer rows of the blast-radius table, the polling-interval
+  sentence, the device-revocation citations, and several guidance and
+  out-of-scope bullets. The opening statement now says that each statement
+  cites its source rather than that every statement traces to
+  `PROTOCOL.md` or `OBJECTS.md`.
+
+*Tooling.*
+- `tools/validate.py` added. It is the validation gate used for
+  revisions 2.2 and 2.3, moved into the repository and extended with
+  checks for prose references to documents that do not exist, quoted
+  section titles, and `spec/SECURITY.md` citations. `tools/README.md`
+  explains how to run it.
+- `.github/workflows/ci.yml` added. It runs `tools/validate.py` on pushes
+  to `main` and on pull requests.
+
+*Documentation.*
+- `docs/FOLLOW-UPS.md` records newly identified follow-ups: parameters
+  whose "Defined in" cell does not state them (item 3b), the
+  non-exhaustive evidence review (item 6b), the missing statement about
+  whether v0.6.3 differs normatively from v0.6.2 (item 9), and four
+  inconsistencies in the specification found by the review (item 10).
+
+*Structure.*
+- Revision strings advanced across all documents. The protocol version
+  is unchanged.
+
+**Normative changes.** None. No protocol rule, object, schema,
+parameter, or stability marker changed. `spec/SECURITY.md` is
+non-normative.
+
+**Open questions.** Same as revision 2.2, plus the follow-ups itemized in
+`docs/FOLLOW-UPS.md`.
+
+**Stability markers after this revision.** Unchanged from revision 2.2.
+
+Stable:
+- Protocol §23, §25, §39
+
+Under review:
+- Protocol §21, §27
+
+`OBJECTS.md` carries no stability markers.
+
+---
+
 ## Revision 2.3
 
 **Protocol version:** v0.6.3 (unchanged)

@@ -1,6 +1,6 @@
 # Grid Network — Parameters
 
-**Revision:** 2.3
+**Revision:** 2.4
 **Protocol version:** v0.6.3
 
 This document defines every symbol used in a normative rule. Literal

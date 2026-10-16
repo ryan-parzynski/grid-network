@@ -1,6 +1,6 @@
 # Grid Network — License
 
-**Revision:** 2.3
+**Revision:** 2.4
 
 **Repository path:** `LICENSE.md`
 
