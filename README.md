@@ -59,6 +59,7 @@ design's reason to exist.
       PARAMETERS.md   All tunable values, as symbols
       VERSIONING.md   Document and protocol versioning
       GLOSSARY.md     Terms
+      SECURITY.md     Security model, blast radius, compromise response
 
     design/         Non-normative rationale
       RATIONALE.md    Problem, solution, developer case

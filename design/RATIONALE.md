@@ -689,7 +689,7 @@ Operator Guide.
 
 This document is not a security certification. It explains design
 choices. It does not assert that the design has been verified against
-any threat model beyond the one in the Protocol Specification.
+any threat model beyond the one in `SECURITY.md`.
 
 This document is not affiliated with any operator, provider, or
 organization.

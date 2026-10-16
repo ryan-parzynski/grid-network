@@ -1606,7 +1606,7 @@ levels for the object types and behaviors it claims to support.
 Conformance demonstrates agreement with this specification's defined
 requirements and test vectors. It does not constitute a security
 certification, interoperability certification, operational audit, or
-assurance against threats outside the stated threat model.
+assurance against threats outside the threat model in `SECURITY.md`.
 
 The terms "Grid-compatible" and "Grid-inspired" have no defined
 conformance meaning in this specification.
