@@ -772,12 +772,6 @@ The result of pairing is a set of signed relationship assertions, one
 published by each principal in its own `stream:identity`. A session
 key is not the durable output; the relationship assertion is.
 
-
-**Revision:** 2.1
-**Protocol version:** v0.6.2
-
-*(Continued from Part 1 of this document. Section numbers continue.)*
-
 ---
 
 ## 21. Pairing — operational detail
