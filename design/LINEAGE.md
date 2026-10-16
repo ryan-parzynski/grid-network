@@ -1,6 +1,6 @@
 # Grid Network — Lineage
 
-**Revision:** 2.2
+**Revision:** 2.3
 **Protocol version:** v0.6.3
 
 This document records what the protocol learned from prior systems. It

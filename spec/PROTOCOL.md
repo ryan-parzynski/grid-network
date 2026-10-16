@@ -1,6 +1,6 @@
 # Grid Network Protocol Specification
 
-**Revision:** 2.2
+**Revision:** 2.3
 **Protocol version:** v0.6.3
 **Status:** Sections marked `stable` are normative and will not change
 without a protocol-version bump. Sections marked `under-review` carry a
@@ -38,7 +38,7 @@ revision.
 
 - MUST, MUST NOT, SHOULD, SHOULD NOT, MAY are used per RFC 2119.
 - **Document revision** is the version of this specification (e.g.,
-  2.2). It advances whenever the document changes.
+  2.3). It advances whenever the document changes.
 - **Protocol version** is the feature set this specification defines
   (e.g., v0.6.3). Implementations conform to a protocol version, not a
   document revision.
@@ -1610,7 +1610,7 @@ conformance meaning in this specification.
 ## 45. Versioning
 
 **Document revision.** Advances whenever the specification changes.
-`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.2.
+`2.0`, `2.1`, `2.2`, and so on. The current document is revision 2.3.
 
 **Protocol version.** `vMAJOR.MINOR.PATCH`. The current protocol
 version is `v0.6.3`.

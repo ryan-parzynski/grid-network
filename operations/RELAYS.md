@@ -1,6 +1,6 @@
 # Grid Network — Relay Operation Guide
 
-**Revision:** 2.2
+**Revision:** 2.3
 **Protocol version:** v0.6.3
 
 This document is non-normative. It describes how to operate a relay for

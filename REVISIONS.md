@@ -9,6 +9,42 @@ entry.
 
 ---
 
+## Revision 2.3
+
+**Protocol version:** v0.6.3 (unchanged)
+
+**Applied changes.**
+
+*Documentation.*
+- `docs/FOLLOW-UPS.md` added. It records the work deferred from the
+  revision 2.2 cleanup, with the unresolved question, the relevant files
+  and historical sources, and whether each item needs a decision or an
+  implementation. It is non-normative.
+- The repository layout list in `README.md` includes
+  `docs/FOLLOW-UPS.md`.
+
+*Structure.*
+- Revision strings advanced across all documents. The protocol version
+  is unchanged.
+
+**Normative changes.** None. No protocol rule, object, schema,
+parameter, or stability marker changed.
+
+**Open questions.** Same as revision 2.2. The deferred work is itemized
+in `docs/FOLLOW-UPS.md`.
+
+**Stability markers after this revision.** Unchanged from revision 2.2.
+
+Stable:
+- Protocol §23, §25, §39
+
+Under review:
+- Protocol §21, §27
+
+`OBJECTS.md` carries no stability markers.
+
+---
+
 ## Revision 2.2
 
 **Protocol version:** v0.6.3
