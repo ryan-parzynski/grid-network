@@ -2,7 +2,8 @@
 """Repository validation for the Grid Network specification.
 
 Usage:
-    python3 tools/validate.py
+    python3 reference/tools/validate.py     (from the repository root)
+    python3 tools/validate.py               (from inside reference/)
 
 Run it from any directory inside a clone. It takes no arguments and reads
 no environment variables. It needs only the Python 3 standard library and
@@ -13,6 +14,12 @@ Checks V1-V16 descend from the validation gate used for revisions 2.2 and
 2.3. V17-V20 were added in revision 2.4, V21-V23 in revision 2.5, and
 V24-V27 in revision 2.6. Nothing here changes the specification; the
 script only reads the repository.
+
+Layout. The documentation set this script checks lives under reference/ in the
+repository. ROOT below is that directory, and every path in this file is relative to it,
+as it was when the set lived at the repository root. The commits it compares against
+predate the move, so a comparison diffs the commit's root tree against the tree of
+reference/ in HEAD, which lines the two layouts up path for path.
 """
 import os
 import re
@@ -20,7 +27,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent      # the reference/ directory
+GITROOT = ROOT.parent                              # the repository root
+NOW = "HEAD:" + ROOT.relative_to(GITROOT).as_posix()   # tree of reference/ in HEAD
 
 # Commits this tool compares against. They are part of the repository history.
 BASE_2_1 = "9898163"   # revision 2.1: the base of the revision 2.2 cleanup
@@ -43,7 +52,10 @@ ALLOWED_CHANGES = {
     "docs/cleanup/EXECUTION-RECORD.md", "docs/cleanup/README.md", "tools/selftest.py",
     # revision 2.6: non-normative implementation notes
     "operations/IMPLEMENTATION-NOTES.md",
+    # added after revision 2.6 was published (commit 809ccb7); not part of a numbered revision
+    "design/RATIONALE-SHOULDERS.md",
 }
+POST_2_6_ADDITIONS = ["design/RATIONALE-SHOULDERS.md"]
 
 # Historical audit archive. Files here keep retired version numbers, stale references and
 # historical document names on purpose, so the checks that compare a document with the
@@ -97,20 +109,27 @@ ALLOWED_QUOTED = [
 ]
 
 
-def git(*args, check=True):
-    p = subprocess.run(["git", "-C", str(ROOT)] + list(args), capture_output=True, text=True)
+def git(*args, check=True, cwd=None):
+    p = subprocess.run(["git", "-C", str(cwd or GITROOT)] + list(args), capture_output=True, text=True)
     if check and p.returncode != 0:
         raise RuntimeError("git %s failed: %s" % (" ".join(args), p.stderr.strip()))
     return p.stdout
 
 
 def have(commit):
-    return subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", commit + "^{commit}"],
+    return subprocess.run(["git", "-C", str(GITROOT), "cat-file", "-e", commit + "^{commit}"],
                           capture_output=True).returncode == 0
 
 
 def show(ref, path):
     return git("show", "%s:%s" % (ref, path))
+
+
+def gdiff(*opts, anchor, path=None):
+    """git diff between an earlier commit's root tree and reference/ in HEAD.
+    The repository-level .github/ directory is outside reference/ and is not compared."""
+    spec = [path] if path else [".", ":(exclude).github"]
+    return git("diff", *opts, anchor + "^{tree}", NOW, "--", *spec)
 
 
 for c in (BASE_2_1, REV_2_2, REV_2_3, REV_2_4, REV_2_5):
@@ -119,7 +138,7 @@ for c in (BASE_2_1, REV_2_2, REV_2_3, REV_2_4, REV_2_5):
               "(git fetch --unshallow, or fetch-depth: 0 in CI) and run again." % c)
         sys.exit(2)
 
-tracked = set(git("ls-files").split("\n")) - {""}
+tracked = set(git("ls-files", cwd=ROOT).split("\n")) - {""}
 files = sorted(f for f in tracked if f.endswith(".md"))
 text = {f: (ROOT / f).read_text(encoding="utf-8") for f in files}
 lines = {f: text[f].split("\n") for f in files}
@@ -386,9 +405,9 @@ if "`SECURITY.md`" not in text["spec/PROTOCOL.md"] or "`SECURITY.md`" not in tex
 check("V10 SECURITY.md is wired into README, PROTOCOL §44, RATIONALE §9", bad)
 
 # V11 ---------------------------------------------------------------------------------
-changed = set(git("diff", "--name-only", BASE_2_1, "HEAD").split())
+changed = set(gdiff("--name-only", anchor=BASE_2_1).split())
 extra = sorted(changed - ALLOWED_CHANGES)
-untracked = git("ls-files", "--others", "--exclude-standard").split()
+untracked = git("ls-files", "--others", "--exclude-standard", cwd=ROOT).split()
 dirty = [l for l in git("status", "--porcelain").split("\n") if l and not l.startswith("??")]
 check("V11 only allowed files changed since revision 2.1; no untracked or uncommitted changes",
       ["unexpected: " + e for e in extra] + ["untracked: " + u for u in untracked]
@@ -616,7 +635,7 @@ else:
                      "`tools/selftest.py`", "`README.md`", "`docs/FOLLOW-UPS.md`", "historical"):
             if want not in fe:
                 bad.append("2.5 entry missing: " + want)
-ch = [c.split("\t") for c in git("diff", "--name-status", REV_2_3, "HEAD").split("\n") if c]
+ch = [c.split("\t") for c in gdiff("--name-status", anchor=REV_2_3).split("\n") if c]
 if latest == "2.4":
     added = sorted(p for s_, p in ch if s_ == "A")
     if added != [".github/workflows/ci.yml", "tools/README.md", "tools/validate.py"]:
@@ -628,22 +647,22 @@ if latest == "2.4":
     for s_, p in ch:
         if s_ != "M" or p in allowed_substance:
             continue
-        d_ = git("diff", "-U0", REV_2_3, "HEAD", "--", p).split("\n")
+        d_ = gdiff("-U0", anchor=REV_2_3, path=p).split("\n")
         b_ = [l[1:] for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
         non_hdr = [l for l in b_ if l and not revre.match(l)]
         if non_hdr:
             bad.append("%s changed beyond revision strings: %r" % (p, non_hdr[0][:60]))
-    d_ = git("diff", "-U0", REV_2_3, "HEAD", "--", "README.md").split("\n")
+    d_ = gdiff("-U0", anchor=REV_2_3, path="README.md").split("\n")
     b_ = [l[1:] for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
     if [l for l in b_ if l and not revre.match(l)]:
         bad.append("README.md changed beyond revision strings")
-    pv_diff = git("diff", "-U0", REV_2_3, "HEAD")
+    pv_diff = gdiff("-U0", anchor=REV_2_3)
     if re.search(r"^-\*\*Protocol version:\*\*", pv_diff, re.M):
         bad.append("a protocol-version line changed; revision 2.4 states it is unchanged")
     if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
         bad.append("2.4 stability lists differ from the five markers")
 if latest == "2.5":
-    ch5 = [c.split("\t") for c in git("diff", "--name-status", REV_2_4, "HEAD").split("\n") if c]
+    ch5 = [c.split("\t") for c in gdiff("--name-status", anchor=REV_2_4).split("\n") if c]
     added5 = sorted(p for s_, p in ch5 if s_ == "A")
     want_added = sorted(["docs/cleanup/EXECUTION-RECORD.md", "docs/cleanup/MERGE-PLAN.md", "docs/cleanup/README.md",
                          "docs/cleanup/SECURITY-REVIEW.md", "tools/selftest.py"])
@@ -655,7 +674,7 @@ if latest == "2.5":
                         r"`2\.0`, `2\.1`, `2\.2`, and so on\. The current document is revision \d\.\d\.|revision is \d\.\d\.)$")
 
     def changed_lines(path):
-        d_ = git("diff", "-U0", REV_2_4, "HEAD", "--", path).split("\n")
+        d_ = gdiff("-U0", anchor=REV_2_4, path=path).split("\n")
         return [l for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
 
     tooling5 = {"REVISIONS.md", "tools/validate.py", "tools/README.md"}
@@ -680,7 +699,7 @@ if latest == "2.5":
                 continue
             if l[0] == "-" or l[1:] not in allowed_:
                 bad.append("%s: unexpected change %r" % (path_, l[:70]))
-    if re.search(r"^-\*\*Protocol version:\*\*", git("diff", "-U0", REV_2_4, "HEAD"), re.M):
+    if re.search(r"^-\*\*Protocol version:\*\*", gdiff("-U0", anchor=REV_2_4), re.M):
         bad.append("a protocol-version line changed; revision 2.5 states it is unchanged")
     if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
         bad.append("2.5 stability lists differ from the five markers")
@@ -691,17 +710,19 @@ if latest == "2.6" and m_new:
                  "no change to any requirement"):
         if want not in fe:
             bad.append("2.6 entry missing: " + want)
-    ch6 = [c.split("\t") for c in git("diff", "--name-status", REV_2_5, "HEAD").split("\n") if c]
+    ch6 = [c.split("\t") for c in gdiff("--name-status", anchor=REV_2_5).split("\n") if c]
     added6 = sorted(p for s_, p in ch6 if s_ == "A")
-    if added6 != ["operations/IMPLEMENTATION-NOTES.md"]:
-        bad.append("files added since 2.5 are %s; the 2.6 entry describes operations/IMPLEMENTATION-NOTES.md" % added6)
+    # The reference set is frozen, so a document added after 2.6 is recorded here and not in REVISIONS.md.
+    if added6 != sorted(["operations/IMPLEMENTATION-NOTES.md"] + POST_2_6_ADDITIONS):
+        bad.append("files added since 2.5 are %s; the 2.6 entry describes operations/IMPLEMENTATION-NOTES.md, "
+                   "and only %s may be added after it" % (added6, POST_2_6_ADDITIONS))
     if [p for s_, p in ch6 if s_ not in ("A", "M")]:
         bad.append("files were deleted or renamed since 2.5")
     revre6 = re.compile(r"^(\*\*(Document revision|Revision):\*\* \d\.\d|  \d\.\d\)\. It advances whenever the document changes\.|"
                         r"`2\.0`, `2\.1`, `2\.2`, and so on\. The current document is revision \d\.\d\.|revision is \d\.\d\.)$")
 
     def changed_lines6(path):
-        d_ = git("diff", "-U0", REV_2_5, "HEAD", "--", path).split("\n")
+        d_ = gdiff("-U0", anchor=REV_2_5, path=path).split("\n")
         return [l for l in d_ if l and l[0] in "+-" and not l.startswith(("+++", "---"))]
 
     # Files whose substance may change in 2.6. For each: the exact lines that may be removed
@@ -734,7 +755,7 @@ if latest == "2.6" and m_new:
                 bad.append("%s: line removed or altered beyond the 2.6 scope: %r" % (p, l[1:70]))
             if l[0] == "+" and add_ok is not None and l[1:] not in add_ok:
                 bad.append("%s: line added beyond the 2.6 scope: %r" % (p, l[1:70]))
-    if re.search(r"^-\*\*Protocol version:\*\*", git("diff", "-U0", REV_2_5, "HEAD"), re.M):
+    if re.search(r"^-\*\*Protocol version:\*\*", gdiff("-U0", anchor=REV_2_5), re.M):
         bad.append("a protocol-version line changed; revision 2.6 states it is unchanged")
     if listed("Stable") != [23, 25, 39] or listed("Under review") != [21, 27]:
         bad.append("2.6 stability lists differ from the five markers")
@@ -834,7 +855,7 @@ check("V19 SECURITY.md citations resolve, cited parameters are defined, and corr
 
 # V20 ---------------------------------------------------------------------------------
 bad = []
-wf = ROOT / ".github" / "workflows" / "ci.yml"
+wf = GITROOT / ".github" / "workflows" / "ci.yml"
 if not wf.is_file():
     bad.append(".github/workflows/ci.yml is missing")
 else:
@@ -844,7 +865,7 @@ else:
     for want, why in ((r"^name: CI\s*$", "name: CI"), (r"^on:\s*$", "on: block"),
                       (r"^\s+push:\s*$", "push trigger"), (r"^\s+branches: \[main\]\s*$", "push to main only"),
                       (r"^\s+pull_request:\s*$", "pull_request trigger"),
-                      (r"run: python3 tools/validate\.py\s*$", "run: python3 tools/validate.py")):
+                      (r"run: python3 reference/tools/validate\.py\s*$", "run: python3 reference/tools/validate.py")):
         if not re.search(want, y, re.M):
             bad.append("workflow missing " + why)
     for forbidden in ("secrets.", "deploy", "publish", "upload-artifact", "pip install"):
@@ -861,8 +882,8 @@ else:
     except Exception as ex:  # noqa: BLE001
         bad.append("workflow YAML does not parse: %s" % ex)
 rd = ROOT / "tools" / "README.md"
-if not rd.is_file() or "python3 tools/validate.py" not in rd.read_text(encoding="utf-8"):
-    bad.append("tools/README.md must show: python3 tools/validate.py")
+if not rd.is_file() or "python3 reference/tools/validate.py" not in rd.read_text(encoding="utf-8"):
+    bad.append("tools/README.md must show: python3 reference/tools/validate.py")
 check("V20 CI workflow and tools/README.md are present and valid", bad)
 
 # V21 ---------------------------------------------------------------------------------
@@ -1067,10 +1088,10 @@ bad = []
 FIGURES = [(r"\$\s?\d", "dollar figure"),
            (r"\b\d[\d,.]*\s?(?:[KMGT]i?bps|[KMGT]i?B/s|bits? per second|bytes? per second|requests? per second|req/s|rps|pps|ops/s)\b",
             "throughput figure")]
-for p_ in sorted(set(git("diff", "--name-only", REV_2_5, "HEAD").split())):
+for p_ in sorted(set(gdiff("--name-only", anchor=REV_2_5).split())):
     if p_.startswith("tools/") or historical(p_):
         continue
-    for l in git("diff", "-U0", REV_2_5, "HEAD", "--", p_).split("\n"):
+    for l in gdiff("-U0", anchor=REV_2_5, path=p_).split("\n"):
         if l.startswith("+") and not l.startswith("+++"):
             for pat, why in FIGURES:
                 for m in re.finditer(pat, l):

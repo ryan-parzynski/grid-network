@@ -5,9 +5,13 @@ and git history and changes nothing.
 
 ## Run it
 
-From a clone of the repository:
+From the root of a clone of the repository:
 
-    python3 tools/validate.py
+    python3 reference/tools/validate.py
+
+The documentation set that this script checks lives under `reference/`, and
+every path named below is relative to that directory. The script compares it
+with earlier commits made before the set moved there.
 
 It takes no arguments and reads no environment variables. It needs Python
 3 and the full git history; a shallow clone fails with an instruction to
@@ -30,7 +34,7 @@ check passes and 1 when any check fails. Each check prints one `PASS` or
   and `ALLOWED_QUOTED`) with the follow-up item that tracks them. A new
   unlisted reference fails. A listed reference that no longer appears also
   fails, so the lists cannot go stale.
-- `.github/workflows/ci.yml` has the required triggers and no secrets,
+- `.github/workflows/ci.yml`, at the repository root, has the required triggers and no secrets,
   deployment, or publishing steps.
 - Only listed files changed since revision 2.1, and no file is untracked
   or uncommitted.
@@ -61,7 +65,7 @@ local path, or oversized file appears.
 
 ## Self-test
 
-    python3 tools/selftest.py
+    python3 reference/tools/selftest.py
 
 Run it on a clean, committed checkout. It clones the repository at HEAD,
 applies one deliberate defect per case in the clone, and checks that

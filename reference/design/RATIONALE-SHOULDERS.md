@@ -3,7 +3,8 @@
 **Addendum to `design/RATIONALE.md`**
 
 **Version:** 1.0  
-**Status:** Published
+**Status:** Published addendum. Non-normative. Added after revision 2.6 and not part of any numbered
+revision; it changes no requirement.
 
 ---
 

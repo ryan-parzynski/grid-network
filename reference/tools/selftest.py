@@ -2,12 +2,13 @@
 """Negative tests for tools/validate.py.
 
 Usage:
-    python3 tools/selftest.py
+    python3 reference/tools/selftest.py     (from the repository root)
 
 Run it on a clean, committed checkout. For each case it clones the repository
 at HEAD into a temporary directory, applies one deliberate defect, commits it
-there, runs tools/validate.py in the clone, and checks which checks fail. The
-repository you run it in is never modified. It needs git and Python 3 only.
+there, runs reference/tools/validate.py in the clone, and checks which checks
+fail. The repository you run it in is never modified. Case paths are relative to
+reference/, the directory that holds the documentation set. It needs git and Python 3 only.
 
 Each case states the checks that must fail. One case states that nothing may
 fail: historical references inside docs/cleanup/ are allowed. The cases added
@@ -24,20 +25,22 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent      # the reference/ directory
+GITROOT = ROOT.parent                              # the repository root
+SET = ROOT.name                                    # "reference"
 GIT = ["git", "-c", "user.name=selftest", "-c", "user.email=selftest@example.invalid"]
 
 
 def append(path, text):
     def mutate(work):
-        p = work / path
+        p = work / SET / path
         p.write_text(p.read_text(encoding="utf-8") + text, encoding="utf-8")
     return mutate
 
 
 def replace(path, old, new):
     def mutate(work):
-        p = work / path
+        p = work / SET / path
         s = p.read_text(encoding="utf-8")
         if s.count(old) != 1:
             raise SystemExit("selftest setup error: %r is not unique in %s" % (old[:50], path))
@@ -47,7 +50,7 @@ def replace(path, old, new):
 
 def create(path, text):
     def mutate(work):
-        (work / path).write_text(text, encoding="utf-8")
+        (work / SET / path).write_text(text, encoding="utf-8")
     return mutate
 
 
@@ -119,12 +122,12 @@ CASES = [
 def run_case(name, mutate, must_fail):
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp) / "work"
-        subprocess.run(["git", "clone", "-q", str(ROOT), str(work)], check=True)
+        subprocess.run(["git", "clone", "-q", str(GITROOT), str(work)], check=True)
         mutate(work)
         subprocess.run(GIT + ["add", "-A"], cwd=work, check=True)
         if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=work).returncode != 0:
             subprocess.run(GIT + ["commit", "-q", "-m", "selftest"], cwd=work, check=True)
-        p = subprocess.run([sys.executable, "tools/validate.py"], cwd=work, capture_output=True, text=True)
+        p = subprocess.run([sys.executable, SET + "/tools/validate.py"], cwd=work, capture_output=True, text=True)
         failed = set(re.findall(r"^FAIL\s+(V\d+)", p.stdout, re.M))
     if must_fail:
         ok = must_fail <= failed and p.returncode == 1
@@ -137,7 +140,7 @@ def run_case(name, mutate, must_fail):
 
 
 def main():
-    status = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True).stdout
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=GITROOT, capture_output=True, text=True).stdout
     if status.strip():
         print("ERROR: the working tree is not clean. Commit or stash changes; the self-test uses HEAD.")
         return 2

@@ -19,4 +19,4 @@ jobs:
         with:
           python-version: "3.x"
       - name: Validate the repository
-        run: python3 tools/validate.py
+        run: python3 reference/tools/validate.py
