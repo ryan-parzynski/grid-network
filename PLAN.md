@@ -127,6 +127,7 @@ Three categories: **adopt** (a dependency), **study** (read the design and the c
 |---|---|
 | **magic-wormhole** (and magic-wormhole.rs) | The closest prior art for Grid pairing: a short human-transferable code, SPAKE2 over a rendezvous "mailbox" server that sees only ciphertext, then a transit relay. The `spake2` crate was originally written for it. Read its protocol docs before writing the pairing spec. |
 | **Tailscale** (client, DERP, magicsock, Tailnet Lock) | DERP shows the "relay first, then upgrade to direct" order that makes connections succeed immediately; Tailnet Lock is the nearest existing design to signed identity state controlled by the user. BSD-3. |
+| **Tailcat** (Tailscale; Go library and CLI, v0.7.0 docs) | Documentation-level prior art for relay-assisted bootstrap with no account system. The address (`tc` + base64 CBOR) carries the server's WireGuard key, a separate path-discovery key, a default 256-bit pre-shared key and DERP info. The client sends a "Meow" message through the relay, WireGuard starts over the relay, and NAT traversal then tries for a direct path. Take from it: the explicit pre-tunnel bootstrap channel; relay metadata embedded in the address so clients never contact the vendor's relay map; client-key allowlists; ephemeral versus saved keys; `ping --until-direct` as a relayed-versus-direct diagnostic. **Do not copy:** the address is a bearer capability, which is not Grid's PAKE secret plus transcript verification code, and not a signed grant, lease or revocable relationship. Its relay-first ordering is its own choice, and Grid's connection order stays illustrative, not mandated. The vendor says its hosted relays keep metadata logs and carry no uptime SLA, and that the API, CLI and wire format carry no stability promises. Bears on Q15 (pairing transport and hint format) only as a comparison. Read from the README mirror and product pages, not from code: pin a commit and read the address encoding, the allowlist enforcement and the tests before making any code-level claim. |
 | **Headscale** | What a self-hosted coordination server needs operationally (database, upgrades, ACL UX), and what self-hosters complain about. |
 | **Syncthing** | Device IDs, a global discovery server, a public relay pool, and fifteen years of self-hoster support experience. Its discovery and relay protocols are small and well documented. |
 | **Keybase sigchains, TUF, Certificate Transparency** | Signed append-only histories, role keys, freshness and rollback protection (TUF's timestamp role versus Grid's nonce-bound freshness signer). The Hypotheses document still lists these as not re-verified (§7). |
@@ -370,6 +371,9 @@ After session 10 the Redesign Plan's checkpoints set the pace until CP9, and the
 - [Iroh 1.0: Dial Keys, Not IPs (Pinggy)](https://pinggy.io/amp/blog/iroh_1_0_dial_keys_not_ips/)
 - [Release notes for iroh v1.0.0 and v1.0.1](https://instagit.com/n0-computer/iroh/release-notes-for-iroh/)
 - [spake2 crate documentation (docs.rs)](https://docs.rs/spake2)
+- [Tailcat package documentation (pkg.go.dev, v0.7.0)](https://pkg.go.dev/github.com/tailscale/tailcat)
+- [Tailcat product page and FAQ (Tailscale)](https://tailscale.com/tailcat)
+- [Tailcat launch post (Tailscale)](https://tailscale.com/blog/tailcat)
 - [RustCrypto PAKEs repository](https://github.com/RustCrypto/PAKEs)
 - [Defguard: BoringTun](https://docs.defguard.net/in-depth/boringtun.md)
 - [cloudflare/boringtun](https://github.com/cloudflare/boringtun)
